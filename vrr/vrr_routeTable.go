@@ -1,7 +1,6 @@
 package vrr
 
 import (
-	"container/list"
 	"log"
 	"sync"
 
