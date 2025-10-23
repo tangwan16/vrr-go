@@ -5,12 +5,14 @@ import (
 	"math/rand"
 	"sync"
 	"time"
+
+	"github.com/tangwan16/vrr-go/vrr"
 )
 
 // Network 模拟链路层 fabric（进程内交换/转发器）
 type Network struct {
-	nodes    map[uint32]*Node // 所有节点的映射表
-	nodesMux sync.RWMutex     // 保护节点映射表的读写锁
+	nodes    map[uint32]*vrr.Node // 所有节点的映射表
+	nodesMux sync.RWMutex         // 保护节点映射表的读写锁
 
 	// 网络延迟和丢包模拟参数
 	latency    time.Duration // 模拟网络延迟

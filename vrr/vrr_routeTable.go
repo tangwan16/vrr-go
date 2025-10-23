@@ -3,8 +3,6 @@ package vrr
 import (
 	"log"
 	"sync"
-
-	"github.com/emirpasic/gods/trees/redblacktree"
 )
 
 // RoutingTableManager 封装了单个节点的路由表状态和操作。
@@ -12,13 +10,6 @@ type RoutingTableManager struct {
 	ownerNode *Node                         // 指向拥有此管理器的节点
 	lock      sync.RWMutex                  // 使用读写锁以优化性能
 	routes    map[uint32]*RoutingTableEntry // 键是 PathId，值是路由条目
-}
-
-// rt_node represents a node in the routing table (red-black tree node)
-type RbNode struct {
-	Node                       *redblacktree.Node // The node in the red-black tree
-	Endpoint                   uint32             // Endpoint value
-	RoutingTableListByEndpoint list.List          // Routing entries associated with this node,[]routing_table_entry
 }
 
 // Struct for use in VRR Routing Table

@@ -4,22 +4,23 @@ import (
 	"log"
 	"time"
 
-	vrr "./vrr"
+	"github.com/tangwan16/vrr-go/network"
+	"github.com/tangwan16/vrr-go/vrr"
 )
 
 func main() {
 	// 创建全局网络
-	network := vrr.NewNetwork()
+	network := network.NewNetwork()
 
 	// 设置网络参数
 	network.latency = 50 * time.Millisecond // 50ms网络延迟
 	network.packetLoss = 0.0                // 0%丢包率
 
 	// 创建节点
-	node1 := vrrNewNode(1, network)
-	node2 := NewNode(2, network)
-	node3 := NewNode(3, network)
-	node4 := NewNode(4, network)
+	node1 := vrr.NewNode(1, network)
+	node2 := vrr.NewNode(2, network)
+	node3 := vrr.NewNode(3, network)
+	node4 := vrr.NewNode(4, network)
 
 	// 注册节点到网络
 	network.RegisterNode(node1)
@@ -53,16 +54,16 @@ func main() {
 }
 
 // 建立物理邻居关系
-func setupPhysicalNeighbors(node1 *Node, node2 *Node) {
+func setupPhysicalNeighbors(node1 *vrr.Node, node2 *vrr.Node) {
 	// 节点1和节点2互为物理邻居
-	node1.psetManager.Add(node2.ID, PSET_LINKED, true)
-	node2.psetManager.Add(node1.ID, PSET_LINKED, true)
+	node1.PSetManager.Add(node2.ID, vrr.PSET_LINKED, true)
+	node2.PSetManager.Add(node1.ID, vrr.PSET_LINKED, true)
 
 	log.Printf("Physical neighbor relationships established between %d and %d", node1.ID, node2.ID)
 }
 
 // 运行模拟场景
-func runSimulation(node1, node2, node3, node4 *Node) {
+func runSimulation(node1, node2, node3, node4 *vrr.Node) {
 	log.Println("Starting VRR simulation...")
 
 	// 场景1：节点1发送HELLO广播

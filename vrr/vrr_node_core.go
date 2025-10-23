@@ -3,6 +3,8 @@ package vrr
 import (
 	"fmt"
 	"log"
+
+	"github.com/tangwan16/vrr-go/network"
 )
 
 // DetectFailures 检测失败的邻居节点
@@ -78,7 +80,7 @@ func (n *Node) Stop() {
 }
 
 // NewNode 创建节点
-func NewNode(id uint32, network *Network) *Node {
+func NewNode(id uint32, network *network.Network) *Node {
 	n := &Node{
 		ID:      id,
 		inbox:   make(chan Message, 256),
