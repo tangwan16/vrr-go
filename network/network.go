@@ -25,7 +25,7 @@ type Network struct {
 }
 
 // deliverMessage 实际投递消息到目标节点
-func (network *Network) deliverMessage(msg Message) {
+func (network *Network) deliverMessage(msg vrr.Message) {
 	network.nodesMux.RLock()
 	targetNode, exists := network.nodes[msg.NextHop]
 	network.nodesMux.RUnlock()
@@ -68,14 +68,14 @@ func (network *Network) shouldDropPacket() bool {
 // NewNetwork 创建 Network
 func NewNetwork() *Network {
 	return &Network{
-		nodes:      make(map[uint32]*Node),
+		nodes:      make(map[uint32]*vrr.Node),
 		latency:    10 * time.Millisecond, // 默认10ms延迟
 		packetLoss: 0.0,                   // 默认无丢包
 	}
 }
 
 // RegisterNode 注册节点到网络
-func (network *Network) RegisterNode(node *Node) {
+func (network *Network) RegisterNode(node *vrr.Node) {
 	network.nodesMux.Lock()
 	defer network.nodesMux.Unlock()
 
@@ -93,7 +93,7 @@ func (network *Network) UnregisterNode(nodeID uint32) {
 }
 
 // Send 发送消息的核心实现
-func (network *Network) Send(msg Message) {
+func (network *Network) Send(msg vrr.Message) {
 	network.statsMux.Lock()
 	network.totalMessages++
 	network.statsMux.Unlock()

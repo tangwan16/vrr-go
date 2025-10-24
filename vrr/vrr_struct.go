@@ -47,7 +47,7 @@ type Node struct {
 	inbox chan Message  // 消息接收通道，模拟网络接口的接收队列
 	stop  chan struct{} // 用于通知goroutine停止的信号通道
 
-	network *network.Network // 对模拟网络的引用，用于发送消息
+	network Network // 对模拟网络的引用，用于发送消息
 
 	lock   sync.RWMutex // 保护节点内部状态（如active）的读写锁
 	active bool         // 节点是否活跃，对应 vrr_node.active
