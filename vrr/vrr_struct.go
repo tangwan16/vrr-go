@@ -2,8 +2,6 @@ package vrr
 
 import (
 	"sync"
-
-	"github.com/tangwan16/vrr-go/network"
 )
 
 const (
