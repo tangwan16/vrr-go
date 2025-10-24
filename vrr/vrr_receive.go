@@ -26,17 +26,42 @@ func (n *Node) rcvMessage(msg Message) {
 	// 根据消息类型分发处理
 	switch msg.Type {
 	case VRR_HELLO:
-		n.receiveHello(msg)
+		// 使用类型断言获取具体的 Payload
+		if payload, ok := msg.Payload.(*HelloPayload); ok {
+			n.receiveHello(msg, payload)
+		} else {
+			log.Printf("Node %d: Invalid payload for HELLO message", n.ID)
+		}
 	case VRR_SETUP_REQ:
-		n.receiveSetupReq(msg)
+		if payload, ok := msg.Payload.(*SetupReqPayload); ok {
+			n.receiveSetupReq(msg, payload)
+		} else {
+			log.Printf("Node %d: Invalid payload for SETUP_REQ message", n.ID)
+		}
 	case VRR_SETUP:
-		n.receiveSetup(msg)
+		if payload, ok := msg.Payload.(*SetupPayload); ok {
+			n.receiveSetup(msg, payload)
+		} else {
+			log.Printf("Node %d: Invalid payload for SETUP message", n.ID)
+		}
 	case VRR_SETUP_FAIL:
-		n.receiveSetupFail(msg)
+		if payload, ok := msg.Payload.(*SetupFailPayload); ok {
+			n.receiveSetupFail(msg, payload)
+		} else {
+			log.Printf("Node %d: Invalid payload for SETUP_FAIL message", n.ID)
+		}
 	case VRR_TEARDOWN:
-		n.receiveTeardown(msg)
-	case VRR_DATA:
-		n.receiveData(msg)
+		if payload, ok := msg.Payload.(*TeardownPayload); ok {
+			n.receiveTeardown(msg, payload)
+		} else {
+			log.Printf("Node %d: Invalid payload for TEARDOWN message", n.ID)
+		}
+	// case VRR_DATA:
+	// 	if payload, ok := msg.Payload.(*DataPayload); ok {
+	// 		n.receiveData(msg, payload)
+	// 	} else {
+	// 		log.Printf("Node %d: Invalid payload for DATA message", n.ID)
+	// 	}
 	default:
 		log.Printf("Node %d: Unknown message type: %d", n.ID, msg.Type)
 	}
@@ -44,45 +69,45 @@ func (n *Node) rcvMessage(msg Message) {
 
 // --- 各类型消息处理函数 ---
 // receiveData 处理数据消息
-func (n *Node) receiveData(msg Message) {
-	log.Printf("Node %d: Handling DATA message from %d to %d", n.ID, msg.Src, msg.Dst)
+// func (n *Node) receiveData(msg Message) {
+// 	log.Printf("Node %d: Handling DATA message from %d to %d", n.ID, msg.Src, msg.Dst)
 
-	if msg.Dst == n.ID {
-		// 数据包到达目的地
-		log.Printf("Node %d: Data packet delivered from %d, payload size: %d",
-			n.ID, msg.Src, len(msg.Payload))
-		// TODO: 递交给上层应用
-	} else {
-		// 需要转发
-		nextHop := n.RoutingTable.GetNext(msg.Dst)
-		if nextHop == 0 {
-			log.Printf("Node %d: No route to forward data to %d", n.ID, msg.Dst)
-			return
-		}
+// 	if msg.Dst == n.ID {
+// 		// 数据包到达目的地
+// 		log.Printf("Node %d: Data packet delivered from %d, payload size: %d",
+// 			n.ID, msg.Src, len(msg.Payload))
+// 		// TODO: 递交给上层应用
+// 	} else {
+// 		// 需要转发
+// 		nextHop := n.RoutingTable.GetNext(msg.Dst)
+// 		if nextHop == 0 {
+// 			log.Printf("Node %d: No route to forward data to %d", n.ID, msg.Dst)
+// 			return
+// 		}
 
-		// 更新NextHop并转发
-		msg.NextHop = nextHop
-		n.Network.Send(msg)
-		log.Printf("Node %d: Forwarded data to %d via %d", n.ID, msg.Dst, nextHop)
-	}
-}
+// 		// 更新NextHop并转发
+// 		msg.NextHop = nextHop
+// 		n.Network.Send(msg)
+// 		log.Printf("Node %d: Forwarded data to %d via %d", n.ID, msg.Dst, nextHop)
+// 	}
+// }
 
 // receiveHello 处理Hello消息
-func (n *Node) receiveHello(msg Message) {
+func (n *Node) receiveHello(msg Message, payload *HelloPayload) {
 	src := msg.Src
 	trans := TRANS_MISSING // 默认是 MISSING
 	me := n
-	actitve := msg.SenderActive
+	actitve := payload.SenderActive
 
 	log.Printf("Node %d: Handling HELLO message from %d", n.ID, msg.Src)
 
-	if len(msg.HelloInfoLinkActive) > VRR_PSET_SIZE && len(msg.HelloInfoLinkNotActive) > VRR_PSET_SIZE && len(msg.HelloInfoPending) > VRR_PSET_SIZE {
+	if len(payload.HelloInfoLinkActive) > VRR_PSET_SIZE && len(payload.HelloInfoLinkNotActive) > VRR_PSET_SIZE && len(payload.HelloInfoPending) > VRR_PSET_SIZE {
 		log.Printf("Node %d: Invalid HELLO message, empty HelloInfo", n.ID)
 		return
 	}
 
 	// 检查自己是否在发送者的物理邻居集中
-	for _, nodeID := range msg.HelloInfoLinkActive {
+	for _, nodeID := range payload.HelloInfoLinkActive {
 		if nodeID == me.ID {
 			trans = TRANS_LINKED
 			break
@@ -90,7 +115,7 @@ func (n *Node) receiveHello(msg Message) {
 	}
 
 	// 检查自己是否在发送者的非活跃邻居集中
-	for _, nodeID := range msg.HelloInfoLinkNotActive {
+	for _, nodeID := range payload.HelloInfoLinkNotActive {
 		if nodeID == me.ID {
 			trans = TRANS_MISSING
 			break
@@ -98,7 +123,7 @@ func (n *Node) receiveHello(msg Message) {
 	}
 
 	// 检查自己是否在发送者的待定邻居集中
-	for _, nodeID := range msg.HelloInfoPending {
+	for _, nodeID := range payload.HelloInfoPending {
 		if nodeID == n.ID {
 			trans = TRANS_PENDING
 			break
@@ -142,7 +167,7 @@ func (n *Node) setActive(Active bool) {
            Send <setup_fail, me, src, proxy, ovset> to me */
 // handleSetupReq 处理Setup请求消息
 // to do：缺乏 vset' 的处理
-func (n *Node) receiveSetupReq(msg Message) {
+func (n *Node) receiveSetupReq(msg Message, payload *SetupReqPayload) {
 	log.Printf("Node %d: Receiving SETUP_REQ from %d to %d via proxy %d", n.ID, msg.Src, msg.Dst, msg.Proxy)
 
 	// 确定下一跳，排除消息发送者
@@ -150,17 +175,17 @@ func (n *Node) receiveSetupReq(msg Message) {
 	// 本节点是src到dst的中间节点
 	if nextHop != 0 {
 		log.Printf("Node %d: Forwarding SETUP_REQ to next hop %d", n.ID, nextHop)
-		n.SendSetupReq(msg.Src, msg.Dst, msg.Proxy, msg.Vset_, nextHop)
+		n.SendSetupReq(msg.Src, msg.Dst, payload.Proxy, payload.Vset_, nextHop)
 		return
 	} else {
 		// 本节点就是dst
 		myVset := n.VsetManager.GetAll()
-		if n.AddMsgSrcToLocalVset(msg.Src, msg.Vset_) {
+		if n.AddMsgSrcToLocalVset(msg.Src, payload.Vset_) {
 			// 从自己开始setup
-			n.SendSetup(n.ID, msg.Src, n.newPathID(), msg.Proxy, myVset, n.ID, n.ID)
+			n.SendSetup(n.ID, msg.Src, n.newPathID(), payload.Proxy, myVset, n.ID, n.ID)
 		} else {
 			// 添加失败，发送Setup失败消息
-			n.SendSetupFail(n.ID, msg.Src, msg.Proxy, myVset, n.ID)
+			n.SendSetupFail(n.ID, msg.Src, payload.Proxy, myVset, n.ID)
 		}
 	}
 }
@@ -181,7 +206,7 @@ Receive (<setup,src,dst,proxy,vset'>, sender)
         TearDownPath( pid, src , null)
 */
 // receiveSetup 处理Setup消息
-func (n *Node) receiveSetup(msg Message) {
+func (n *Node) receiveSetup(msg Message, payload *SetupPayload) {
 	log.Printf("Node %d: Receiving SETUP from %d to %d, pathID %d, proxy %d,sender %d", n.ID, msg.Src, msg.Dst, msg.Pid, msg.Proxy, msg.Sender)
 
 	// 确定下一跳
@@ -190,39 +215,39 @@ func (n *Node) receiveSetup(msg Message) {
 	if n.PsetManager.IsActiveLinkedPset(msg.Dst) {
 		nextHop = msg.Dst
 	} else {
-		nextHop = n.RoutingTable.GetNext(msg.Proxy)
+		nextHop = n.RoutingTable.GetNext(payload.Proxy)
 	}
-	addedToRoute := n.RoutingTable.AddRoute(msg.Src, msg.Dst, msg.Sender, nextHop, msg.Pid)
+	addedToRoute := n.RoutingTable.AddRoute(msg.Src, msg.Dst, msg.Sender, nextHop, payload.Pid)
 
 	// 添加路由条目
 	if !addedToRoute || !n.PsetManager.IsActiveLinkedPset(msg.Sender) {
 		log.Printf("Node %d: Couldn't add route, tearing down path to %d", n.ID, msg.Src)
 		// 故障！要么路由添加失败，要么发送者不再是我的邻居
-		n.RoutingTable.TearDownPath(msg.Pid, msg.Src, msg.Sender)
+		n.RoutingTable.TearDownPath(payload.Pid, msg.Src, msg.Sender)
 		return
 	}
 
 	// 若还有下一跳，则继续转发 setup
 	if nextHop != 0 {
-		n.SendSetup(msg.Src, msg.Dst, msg.Pid, msg.Proxy, msg.Vset_, nextHop, n.ID)
+		n.SendSetup(msg.Src, msg.Dst, payload.Pid, payload.Proxy, payload.Vset_, nextHop, n.ID)
 		return
 	}
 
 	// 本节点就是dst
 	if msg.Dst == n.ID {
-		addedToVset := n.AddMsgSrcToLocalVset(msg.Src, msg.Vset_)
+		addedToVset := n.AddMsgSrcToLocalVset(msg.Src, payload.Vset_)
 		if !addedToVset {
 			log.Printf("Node %d: Couldn't add %d to vset, tearing down path", n.ID, msg.Src)
 			//  路径本身是好的，但我（目标节点）由于某种策略无法将源节点加入我的vset
 			// 这是一个“逻辑拒绝”，而不是“链路错误”
-			n.RoutingTable.TearDownPath(msg.Pid, msg.Src, 0)
+			n.RoutingTable.TearDownPath(payload.Pid, msg.Src, 0)
 		}
 		return
 	}
 
 	// 异常情况：无下一跳且目标不是我
 	log.Printf("Node %d: Unexpected setup condition, tearing down path to %d", n.ID, msg.Src)
-	n.RoutingTable.TearDownPath(msg.Pid, msg.Src, 0)
+	n.RoutingTable.TearDownPath(payload.Pid, msg.Src, 0)
 
 }
 
@@ -242,10 +267,10 @@ Receive (<teardown, <pid,ea>, vset‘>, sender)
             Send <setup_req, me, e, proxy, vset> to proxy
 */
 // receiveTeardown 处理Teardown消息
-func (n *Node) receiveTeardown(msg Message) {
+func (n *Node) receiveTeardown(msg Message, payload *TeardownPayload) {
 	log.Printf("Node %d: Receiving TEARDOWN pathID %d", n.ID, msg.Pid)
 
-	route := n.RoutingTable.RemoveRoute(msg.Pid, msg.Endpoint)
+	route := n.RoutingTable.RemoveRoute(payload.Pid, payload.Endpoint)
 
 	// 确定下一个要发送teardown的节点，到达ea或eb时，next=0
 	var next uint32
@@ -257,7 +282,7 @@ func (n *Node) receiveTeardown(msg Message) {
 
 	if next != 0 {
 		// ea 和 eb中间节点
-		n.SendTeardown(msg.Pid, msg.Endpoint, msg.Vset_, next)
+		n.SendTeardown(payload.Pid, payload.Endpoint, payload.Vset_, next)
 	} else {
 		// 到达ea或eb节点，更新本地vset
 		var e uint32
@@ -269,9 +294,9 @@ func (n *Node) receiveTeardown(msg Message) {
 		n.VsetManager.Remove(e)
 
 		// 如果vset'不为空
-		if len(msg.Vset_) > 0 {
+		if len(payload.Vset_) > 0 {
 			// 合并vset'到本地vset
-			n.AddMsgSrcToLocalVset(0, msg.Vset_)
+			n.AddMsgSrcToLocalVset(0, payload.Vset_)
 		} else {
 			//
 			// vset'为空，发生了链路错误，通过其他代码重新建立连接
@@ -291,9 +316,9 @@ Receive (<setup_fail,src,dst,proxy,vset'>, sender)
         Add(vset, null, vset’ Union {src} )
 */
 // receiveSetupFail 处理Setup失败消息
-func (n *Node) receiveSetupFail(msg Message) {
+func (n *Node) receiveSetupFail(msg Message, payload *SetupFailPayload) {
 	log.Printf("Node %d: Handling SETUP_FAIL from %d to %d via proxy %d",
-		n.ID, msg.Src, msg.Dst, msg.Proxy)
+		n.ID, msg.Src, msg.Dst, payload.Proxy)
 
 	// 确定下一跳
 	var nextHop uint32
@@ -301,15 +326,15 @@ func (n *Node) receiveSetupFail(msg Message) {
 	if n.PsetManager.IsActiveLinkedPset(msg.Dst) {
 		nextHop = msg.Dst
 	} else {
-		nextHop = n.RoutingTable.GetNext(msg.Proxy)
+		nextHop = n.RoutingTable.GetNext(payload.Proxy)
 	}
 
 	if nextHop != 0 {
 		// 转发Setup失败消息
-		n.SendSetupFail(msg.Src, msg.Dst, msg.Proxy, msg.Vset_, nextHop)
+		n.SendSetupFail(msg.Src, msg.Dst, payload.Proxy, payload.Vset_, nextHop)
 	} else if msg.Dst == n.ID {
 		// 自己是目的地，将src添加到vset并处理
-		srcVsetWithSrc := append(msg.Vset_, msg.Src)
+		srcVsetWithSrc := append(payload.Vset_, msg.Src)
 		n.AddMsgSrcToLocalVset(0, srcVsetWithSrc)
 	}
 }

@@ -102,7 +102,8 @@ func (psm *PsetStateManager) updateHandler() {
 		// 检查是否需要为新节点发起setup_req
 		if !me.Active && tmp.Active && nextState == PSET_LINKED {
 			log.Printf("Node %d: New Active/linked neighbor %d found. Sending setup_req to self via proxy %d.", me.ID, tmp.node, tmp.node)
-			me.SendSetupReq(me.ID, me.ID, tmp.node, nil, me.ID)
+			// todo: 参数对应
+			// me.SendSetupReq(me.ID, me.ID, 0, me.ID, tmp.node, nil)
 		}
 	}
 	log.Printf("Node %d: Pset update handler stopped.", psm.ownerNode.ID)

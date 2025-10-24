@@ -3,18 +3,20 @@ package vrr
 import "log"
 
 // SendSetupReq 构建并发送一个 setup request 数据包
-func (n *Node) SendSetupReq(src, dest, proxy uint32, vset_ []uint32, nextHop uint32) bool {
+func (n *Node) SendSetupReq(src, dest, sender uint32, nextHop uint32, proxy uint32, vset_ []uint32) bool {
 	log.Printf("src %d: SendSetupReq to dest=%d via proxy=%d", src, dest, proxy)
-
+	// 2. 创建消息信封 (Message)，并装入 Payload
 	msg := Message{
-		Type: VRR_SETUP_REQ,
-		Src:  src,
-		Dst:  dest,
+		Type:    VRR_SETUP_REQ,
+		Src:     src,
+		Dst:     dest,
+		Sender:  sender,
+		NextHop: nextHop,
 
-		Proxy: proxy,
-		Vset_: vset_,
-
-		NextHop: nextHop, // 消息发送给 nextHop
+		Payload: &SetupReqPayload{
+			Proxy: proxy,
+			Vset_: append([]uint32(nil), vset_...),
+		},
 	}
 
 	n.Network.Send(msg)
@@ -22,23 +24,22 @@ func (n *Node) SendSetupReq(src, dest, proxy uint32, vset_ []uint32, nextHop uin
 }
 
 // SendSetup 构建并发送一个 setup 数据包
-func (n *Node) SendSetup(src, dest, pid, proxy uint32, vset []uint32, nextHop uint32, sender uint32) bool {
+func (n *Node) SendSetup(src, dest, sender uint32, nextHop uint32, pid, proxy uint32, vset []uint32) bool {
 	log.Printf("Node %d: SendSetup src=%d dest=%d pathID=%d proxy=%d nextHop=%d",
 		n.ID, src, dest, pid, proxy, nextHop)
 
 	msg := Message{
-		Type: VRR_SETUP,
-
-		Src: src,
-		Dst: dest,
-
-		Pid:   pid,
-		Proxy: proxy,
-
-		Vset_: append([]uint32(nil), vset...), // 复制切片
-
+		Type:    VRR_SETUP,
+		Src:     src,
+		Dst:     dest,
 		Sender:  sender,  // 设置实际发送者为上一跳
 		NextHop: nextHop, // 消息发送给 nextHop
+
+		Payload: &SetupPayload{
+			Pid:   pid,
+			Proxy: proxy,
+			Vset_: append([]uint32(nil), vset...), // 复制切片
+		},
 	}
 
 	n.Network.Send(msg)
@@ -46,7 +47,7 @@ func (n *Node) SendSetup(src, dest, pid, proxy uint32, vset []uint32, nextHop ui
 }
 
 // SendSetupFail 构建并发送一个 setup fail 数据包
-func (n *Node) SendSetupFail(src, dst, proxy uint32, vset []uint32, nextHop uint32) bool {
+func (n *Node) SendSetupFail(src, dst, sender, nextHop, proxy uint32, vset []uint32) bool {
 	log.Printf("Node %d: SendSetupFail src=%d dst=%d proxy=%d nextHop=%d",
 		n.ID, src, dst, proxy, nextHop)
 
@@ -54,9 +55,13 @@ func (n *Node) SendSetupFail(src, dst, proxy uint32, vset []uint32, nextHop uint
 		Type:    VRR_SETUP_FAIL,
 		Src:     src,
 		Dst:     dst,
+		Sender:  sender,
 		NextHop: nextHop,
-		Proxy:   proxy,
-		Vset_:   append([]uint32(nil), vset...), // 复制切片
+
+		Payload: &SetupFailPayload{
+			Proxy: proxy,
+			Vset_: append([]uint32(nil), vset...), // 复制切片
+		},
 	}
 
 	n.Network.Send(msg)
@@ -69,12 +74,16 @@ func (n *Node) SendTeardown(pathID, endpoint uint32, vset_ []uint32, nextHop uin
 		n.ID, pathID, endpoint, nextHop)
 
 	msg := Message{
-		Type: VRR_TEARDOWN,
-
-		Pid:      pathID,
-		Endpoint: endpoint,
-		Vset_:    append([]uint32(nil), vset_...), // 复制切片
-		NextHop:  nextHop,
+		Type:    VRR_TEARDOWN,
+		Src:     n.ID, // Teardown 消息由当前节点发起
+		Dst:     0,    // 通常是广播或沿路径反向传播，具体取决于协议
+		NextHop: nextHop,
+		Sender:  n.ID,
+		Payload: &TeardownPayload{
+			Pid:      pathID,
+			Endpoint: endpoint,
+			Vset_:    append([]uint32(nil), vset_...), // 复制切片
+		},
 	}
 
 	n.Network.Send(msg)
@@ -89,14 +98,17 @@ func (n *Node) SendHelloPkt() bool {
 	n.PsetStateManager.Update()
 
 	msg := Message{
-		Type:                   VRR_HELLO,
-		Src:                    n.ID,
-		Dst:                    0, // 广播地址
-		NextHop:                0, // 广播，无需指定下一跳
-		SenderActive:           n.Active,
-		HelloInfoLinkActive:    append([]uint32(nil), n.PsetStateManager.LinkActive...),
-		HelloInfoLinkNotActive: append([]uint32(nil), n.PsetStateManager.LinkNotActive...),
-		HelloInfoPending:       append([]uint32(nil), n.PsetStateManager.Pending...),
+		Type:    VRR_HELLO,
+		Src:     n.ID,
+		Dst:     0, // 广播地址
+		NextHop: 0, // 广播，无需指定下一跳
+		Sender:  n.ID,
+		Payload: &HelloPayload{
+			SenderActive:           n.Active,
+			HelloInfoLinkActive:    append([]uint32(nil), n.PsetStateManager.LinkActive...),
+			HelloInfoLinkNotActive: append([]uint32(nil), n.PsetStateManager.LinkNotActive...),
+			HelloInfoPending:       append([]uint32(nil), n.PsetStateManager.Pending...),
+		},
 	}
 
 	n.Network.Send(msg)
@@ -104,7 +116,7 @@ func (n *Node) SendHelloPkt() bool {
 }
 
 // SendData 发送数据消息
-func (n *Node) SendData(dest uint32, payload []byte) bool {
+/* func (n *Node) SendData(dest uint32, payload []byte) bool {
 	// 查找路由
 	nextHop := n.RoutingTable.GetNext(dest)
 	if nextHop == 0 {
@@ -124,7 +136,7 @@ func (n *Node) SendData(dest uint32, payload []byte) bool {
 
 	n.Network.Send(msg)
 	return true
-}
+} */
 
 // newPathID 作为 Node 的方法生成一个随机的 32 位路径 ID
 // 确保生成的 ID 不与当前节点的 vset 中的任何节点 ID 冲突

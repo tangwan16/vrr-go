@@ -20,27 +20,58 @@ type Networker interface {
 	Send(msg Message) // 假设 Message 类型也在 vrr 包或其依赖的包中
 }
 
-// Message 是进程内“链路层”消息结构，替代 skb + eth + vrr header
+// Payload 接口定义了所有具体消息内容的共同行为。
+// isPayload 是一个标记方法，用于类型约束，确保只有我们定义的消息体才能被赋值。
+type Payload interface {
+	isPayload()
+}
+
+// Message 现在是消息的“信封”，包含路由和元数据。
 type Message struct {
-	Type uint8
-	Src  uint32 // 消息的逻辑发起者ID。
-	Dst  uint32 // 消息的最终逻辑目的地ID,广播消息，设置为0
+	Type    uint8  // 消息类型，用于解析 Payload
+	Src     uint32 // 消息的逻辑发起者ID
+	Dst     uint32 // 消息的最终逻辑目的地ID, 广播为0
+	NextHop uint32 // 下一跳节点ID（用于转发）
+	Sender  uint32 // 实际发送者节点ID（上一跳）
 
-	Pid      uint32 //路径ID。用于 SETUP, TEARDOWN 等消息。
-	Endpoint uint32 //端点值。用于 TEARDOWN 消息。
-	Proxy    uint32 //代理节点ID。用于 SETUP_REQ, SETUP 等消息。
+	Payload Payload // 消息的具体内容
+}
 
-	Vset_   []uint32 // 虚拟邻居集合.用于 SETUP_REQ, SETUP, SETUP_FAIL, TEARDOWN 消息。
-	NextHop uint32   // 下一跳节点ID（用于转发）
-	Sender  uint32   // 实际发送者节点ID（上一跳）
+func (*HelloPayload) isPayload()     {}
+func (*SetupReqPayload) isPayload()  {}
+func (*SetupPayload) isPayload()     {}
+func (*SetupFailPayload) isPayload() {}
+func (*TeardownPayload) isPayload()  {}
 
-	Payload []byte // 应用层数据。用于 DATA 类型的消息。
-
-	// hello 消息
+// HelloPayload 对应 HELLO 消息
+type HelloPayload struct {
 	SenderActive           bool
 	HelloInfoLinkActive    []uint32
 	HelloInfoLinkNotActive []uint32
 	HelloInfoPending       []uint32
+}
+
+// SetupReqPayload 对应 SETUP_REQ 消息
+type SetupReqPayload struct {
+	Proxy uint32
+	Vset_ []uint32
+}
+
+type SetupPayload struct {
+	Pid   uint32
+	Proxy uint32
+	Vset_ []uint32
+}
+
+type SetupFailPayload struct {
+	Proxy uint32
+	Vset_ []uint32
+}
+
+type TeardownPayload struct {
+	Pid      uint32
+	Endpoint uint32
+	Vset_    []uint32
 }
 
 // Node 模拟一个 VRR 节点

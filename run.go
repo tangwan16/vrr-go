@@ -4,8 +4,8 @@ import (
 	"log"
 	"time"
 
-	network "github.com/tangwan16/vrr-go/network"
-	vrr "github.com/tangwan16/vrr-go/vrr"
+	"github.com/tangwan16/vrr-go/network"
+	"github.com/tangwan16/vrr-go/vrr"
 )
 
 func main() {

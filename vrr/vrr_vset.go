@@ -231,8 +231,9 @@ func (n *Node) AddMsgSrcToLocalVset(src uint32, vset_ []uint32) bool {
 	for _, id := range vset_ {
 		if n.VsetManager.ShouldAdd(id) {
 			proxy, _ := n.PsetManager.GetProxy()
-			myVset := n.VsetManager.GetAll()
-			n.SendSetupReq(n.ID, id, proxy, myVset, proxy)
+			// myVset := n.VsetManager.GetAll()
+			// to do: 参数对应
+			// n.SendSetupReq(n.ID, id, proxy, myVset, proxy)
 			log.Printf("Node %d: Sending setup_req to dest=%d via proxy=%d", n.ID, id, proxy)
 		}
 	}
