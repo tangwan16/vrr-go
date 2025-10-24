@@ -4,17 +4,13 @@ import (
 	"log"
 	"time"
 
-	"github.com/tangwan16/vrr-go/network"
-	"github.com/tangwan16/vrr-go/vrr"
+	network "github.com/tangwan16/vrr-go/network"
+	vrr "github.com/tangwan16/vrr-go/vrr"
 )
 
 func main() {
-	// 创建全局网络
-	network := network.NewNetwork()
-
-	// 设置网络参数
-	network.latency = 50 * time.Millisecond // 50ms网络延迟
-	network.packetLoss = 0.0                // 0%丢包率
+	// 创建全局网络,设置延迟50ms和丢包率为0%
+	network := network.NewNetwork(50*time.Millisecond, 0.0)
 
 	// 创建节点
 	node1 := vrr.NewNode(1, network)
@@ -56,8 +52,8 @@ func main() {
 // 建立物理邻居关系
 func setupPhysicalNeighbors(node1 *vrr.Node, node2 *vrr.Node) {
 	// 节点1和节点2互为物理邻居
-	node1.PSetManager.Add(node2.ID, vrr.PSET_LINKED, true)
-	node2.PSetManager.Add(node1.ID, vrr.PSET_LINKED, true)
+	node1.PsetManager.Add(node2.ID, vrr.PSET_LINKED, true)
+	node2.PsetManager.Add(node1.ID, vrr.PSET_LINKED, true)
 
 	log.Printf("Physical neighbor relationships established between %d and %d", node1.ID, node2.ID)
 }

@@ -32,7 +32,7 @@ func NewPSetManager(owner *Node) *PSetManager {
 }
 
 // Add  向物理邻居集中添加一个节点。
-func (pms *PSetManager) Add(nodeID uint32, status uint32, active bool) bool {
+func (pms *PSetManager) Add(nodeID uint32, status uint32, Active bool) bool {
 	pms.lock.Lock()
 	defer pms.lock.Unlock()
 
@@ -47,7 +47,7 @@ func (pms *PSetManager) Add(nodeID uint32, status uint32, active bool) bool {
 	newNode := &PsetNode{
 		NodeId: nodeID,
 		Status: status,
-		Active: active,
+		Active: Active,
 	}
 	atomic.StoreInt32(&newNode.FailCount, 0)
 
@@ -58,7 +58,7 @@ func (pms *PSetManager) Add(nodeID uint32, status uint32, active bool) bool {
 }
 
 // Update 更新物理邻居集中一个节点的状态。
-func (pms *PSetManager) Update(nodeID uint32, status uint32, active bool) bool {
+func (pms *PSetManager) Update(nodeID uint32, status uint32, Active bool) bool {
 	pms.lock.Lock()
 	defer pms.lock.Unlock()
 
@@ -66,7 +66,7 @@ func (pms *PSetManager) Update(nodeID uint32, status uint32, active bool) bool {
 		pNode := e.Value.(*PsetNode)
 		if pNode.NodeId == nodeID {
 			pNode.Status = status
-			pNode.Active = active
+			pNode.Active = Active
 			log.Printf("Node %d: PSet updated neighbor %d", pms.ownerNode.ID, nodeID)
 			return true
 		}
@@ -199,7 +199,7 @@ func (pms *PSetManager) IsActiveLinkedPset(nodeID uint32) bool {
 // -------------------VRR 论文方法实现------------------------------
 /*
 PickRandomActive(pset)
-	returns a random physical neighbor that is active
+	returns a random physical neighbor that is Active
 */
 // GetProxy 从活跃的物理邻居中随机选择一个作为代理。
 func (pms *PSetManager) GetProxy() (uint32, bool) {

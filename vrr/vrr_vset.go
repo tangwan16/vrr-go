@@ -229,20 +229,20 @@ func (n *Node) AddMsgSrcToLocalVset(src uint32, vset_ []uint32) bool {
 
 	// 对 vset_ 中的每个节点，检查是否应该添加，如果应该添加，则选择一个代理并发送 setup_req
 	for _, id := range vset_ {
-		if n.vsetManager.ShouldAdd(id) {
-			proxy, _ := n.psetManager.GetProxy()
-			myVset := n.vsetManager.GetAll()
+		if n.VsetManager.ShouldAdd(id) {
+			proxy, _ := n.PsetManager.GetProxy()
+			myVset := n.VsetManager.GetAll()
 			n.SendSetupReq(n.ID, id, proxy, myVset, proxy)
 			log.Printf("Node %d: Sending setup_req to dest=%d via proxy=%d", n.ID, id, proxy)
 		}
 	}
 	// AddMsgSrcToLocalVset(src,vset_)
 	// 如果 src 不为零且应该添加到 vset 中
-	if src != 0 && src != 0xffffffff && n.vsetManager.ShouldAdd(src) {
+	if src != 0 && src != 0xffffffff && n.VsetManager.ShouldAdd(src) {
 		log.Printf("Node %d: Adding src %d to vset", n.ID, src)
-		removedNodeId, _ := n.vsetManager.Add(src)
+		removedNodeId, _ := n.VsetManager.Add(src)
 		// to do : TearDownPathTo
-		n.routingTable.TearDownPathTo(removedNodeId)
+		n.RoutingTable.TearDownPathTo(removedNodeId)
 		log.Printf("Node %d: Should tear down path to removed node %d", n.ID, removedNodeId)
 		return true
 	}

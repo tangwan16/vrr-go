@@ -16,6 +16,10 @@ const (
 	* neighbors */
 )
 
+type Networker interface {
+	Send(msg Message) // 假设 Message 类型也在 vrr 包或其依赖的包中
+}
+
 // Message 是进程内“链路层”消息结构，替代 skb + eth + vrr header
 type Message struct {
 	Type uint8
@@ -43,21 +47,21 @@ type Message struct {
 type Node struct {
 	ID uint32 // 节点的唯一标识符
 
-	// --- 核心组件 ---
-	inbox chan Message  // 消息接收通道，模拟网络接口的接收队列
-	stop  chan struct{} // 用于通知goroutine停止的信号通道
+	StopChan chan struct{} // 用于通知goroutine停止的信号通道
 
-	network Network // 对模拟网络的引用，用于发送消息
+	Network Networker // 对模拟网络的引用，用于发送消息
 
 	lock   sync.RWMutex // 保护节点内部状态（如active）的读写锁
-	active bool         // 节点是否活跃，对应 vrr_node.active
+	Active bool         // 节点是否活跃，对应 vrr_node.Active
 
-	timeout int // 活跃状态超时计数器，对应 vrr_node.timeout
+	Timeout int // 活跃状态超时计数器，对应 vrr_node.Timeout
 
 	// --- 状态管理器 ---
 	// 每个节点都拥有自己独立的状态管理器实例
-	psetManager      *PSetManager         // 物理邻居集管理器
-	vsetManager      *VSetManager         // 虚拟邻居集管理器
-	routingTable     *RoutingTableManager // 路由表管理器
-	psetStateManager *PsetStateManager    // 物理邻居集管理器
+	// --- 核心组件 ---
+	InboxChan        chan Message         // 消息接收通道，模拟网络接口的接收队列
+	PsetManager      *PSetManager         // 物理邻居集管理器
+	VsetManager      *VSetManager         // 虚拟邻居集管理器
+	RoutingTable     *RoutingTableManager // 路由表管理器
+	PsetStateManager *PsetStateManager    // 物理邻居集管理器
 }

@@ -257,17 +257,17 @@ func (rt *RoutingTableManager) TearDownPath(pathID, endpoint, sender uint32) {
 	var srcVsetToSend []uint32
 	if sender == 0 {
 		// sender为0，是正常路径维护（如vset协商失败），需要携带vset以同步状态
-		srcVsetToSend = n.vsetManager.GetAll() // 包含vset
+		srcVsetToSend = n.VsetManager.GetAll() // 包含vset
 	} else {
 		// sender不为0，是故障清理（如邻居丢失），不携带vset以触发对端重连
 		srcVsetToSend = nil // 不包含vset
 	}
 
 	// 发送teardown消息
-	if route.Na != 0 && n.psetManager.IsActiveLinkedPset(route.Na) {
+	if route.Na != 0 && n.PsetManager.IsActiveLinkedPset(route.Na) {
 		n.SendTeardown(pathID, endpoint, srcVsetToSend, route.Na)
 	}
-	if route.Nb != 0 && n.psetManager.IsActiveLinkedPset(route.Nb) {
+	if route.Nb != 0 && n.PsetManager.IsActiveLinkedPset(route.Nb) {
 		n.SendTeardown(pathID, endpoint, srcVsetToSend, route.Nb)
 	}
 }

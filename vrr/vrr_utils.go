@@ -41,7 +41,7 @@ func (n *Node) VrrNewPathID() uint32 {
 	defer rngMutex.Unlock()
 
 	// 获取当前节点的所有 vset 节点 ID
-	vsetNodes := n.vsetManager.GetAll()
+	vsetNodes := n.VsetManager.GetAll()
 
 	// 将 vset 节点 ID 存入 map 用于快速查找
 	existingIDs := make(map[uint32]bool)

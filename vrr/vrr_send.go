@@ -17,7 +17,7 @@ func (n *Node) SendSetupReq(src, dest, proxy uint32, vset_ []uint32, nextHop uin
 		NextHop: nextHop, // 消息发送给 nextHop
 	}
 
-	n.network.Send(msg)
+	n.Network.Send(msg)
 	return true
 }
 
@@ -41,7 +41,7 @@ func (n *Node) SendSetup(src, dest, pid, proxy uint32, vset []uint32, nextHop ui
 		NextHop: nextHop, // 消息发送给 nextHop
 	}
 
-	n.network.Send(msg)
+	n.Network.Send(msg)
 	return true
 }
 
@@ -59,7 +59,7 @@ func (n *Node) SendSetupFail(src, dst, proxy uint32, vset []uint32, nextHop uint
 		Vset_:   append([]uint32(nil), vset...), // 复制切片
 	}
 
-	n.network.Send(msg)
+	n.Network.Send(msg)
 	return true
 }
 
@@ -77,7 +77,7 @@ func (n *Node) SendTeardown(pathID, endpoint uint32, vset_ []uint32, nextHop uin
 		NextHop:  nextHop,
 	}
 
-	n.network.Send(msg)
+	n.Network.Send(msg)
 	return true
 }
 
@@ -86,27 +86,27 @@ func (n *Node) SendHelloPkt() bool {
 	log.Printf("Node %d: SendHelloPkt (broadcasting)", n.ID)
 
 	// 更新 psetState 快照
-	n.psetStateManager.Update()
+	n.PsetStateManager.Update()
 
 	msg := Message{
 		Type:                   VRR_HELLO,
 		Src:                    n.ID,
 		Dst:                    0, // 广播地址
 		NextHop:                0, // 广播，无需指定下一跳
-		SenderActive:           n.active,
-		HelloInfoLinkActive:    append([]uint32(nil), n.psetStateManager.LinkActive...),
-		HelloInfoLinkNotActive: append([]uint32(nil), n.psetStateManager.LinkNotActive...),
-		HelloInfoPending:       append([]uint32(nil), n.psetStateManager.Pending...),
+		SenderActive:           n.Active,
+		HelloInfoLinkActive:    append([]uint32(nil), n.PsetStateManager.LinkActive...),
+		HelloInfoLinkNotActive: append([]uint32(nil), n.PsetStateManager.LinkNotActive...),
+		HelloInfoPending:       append([]uint32(nil), n.PsetStateManager.Pending...),
 	}
 
-	n.network.Send(msg)
+	n.Network.Send(msg)
 	return true
 }
 
 // SendData 发送数据消息
 func (n *Node) SendData(dest uint32, payload []byte) bool {
 	// 查找路由
-	nextHop := n.routingTable.GetNext(dest)
+	nextHop := n.RoutingTable.GetNext(dest)
 	if nextHop == 0 {
 		log.Printf("Node %d: No route to destination %d", n.ID, dest)
 		return false
@@ -122,7 +122,7 @@ func (n *Node) SendData(dest uint32, payload []byte) bool {
 		Payload: append([]byte(nil), payload...), // 复制 payload
 	}
 
-	n.network.Send(msg)
+	n.Network.Send(msg)
 	return true
 }
 
@@ -133,7 +133,7 @@ func (n *Node) newPathID() uint32 {
 	defer rngMutex.Unlock()
 
 	// 获取当前节点的所有 vset 节点 ID
-	vsetNodes := n.vsetManager.GetAll()
+	vsetNodes := n.VsetManager.GetAll()
 
 	// 将 vset 节点 ID 存入 map 用于快速查找
 	existingIDs := make(map[uint32]bool)

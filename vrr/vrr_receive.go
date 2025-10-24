@@ -21,7 +21,7 @@ func (n *Node) rcvMessage(msg Message) {
 
 	// 重置相关超时和失败计数
 	n.ResetActiveTimeout()
-	n.psetManager.ResetFailCount(msg.Src)
+	n.PsetManager.ResetFailCount(msg.Src)
 
 	// 根据消息类型分发处理
 	switch msg.Type {
@@ -54,7 +54,7 @@ func (n *Node) receiveData(msg Message) {
 		// TODO: 递交给上层应用
 	} else {
 		// 需要转发
-		nextHop := n.routingTable.GetNext(msg.Dst)
+		nextHop := n.RoutingTable.GetNext(msg.Dst)
 		if nextHop == 0 {
 			log.Printf("Node %d: No route to forward data to %d", n.ID, msg.Dst)
 			return
@@ -62,7 +62,7 @@ func (n *Node) receiveData(msg Message) {
 
 		// 更新NextHop并转发
 		msg.NextHop = nextHop
-		n.network.Send(msg)
+		n.Network.Send(msg)
 		log.Printf("Node %d: Forwarded data to %d via %d", n.ID, msg.Dst, nextHop)
 	}
 }
@@ -107,10 +107,10 @@ func (n *Node) receiveHello(msg Message) {
 	update := PsetStateUpdate{
 		node:   src,
 		trans:  trans,
-		active: actitve,
+		Active: actitve,
 	}
 	// 将任务交给PsetStateManager的工作队列
-	n.psetStateManager.ScheduleUpdate(update)
+	n.PsetStateManager.ScheduleUpdate(update)
 }
 
 // --------------------public api-----------------------------
@@ -118,14 +118,14 @@ func (n *Node) receiveHello(msg Message) {
 func (n *Node) resetActiveTimeout() {
 	n.lock.Lock()
 	defer n.lock.Unlock()
-	n.timeout = 0 // 重置超时计数器
+	n.Timeout = 0 // 重置超时计数器
 }
 
 // setActive 设置节点活跃状态
-func (n *Node) setActive(active bool) {
+func (n *Node) setActive(Active bool) {
 	n.lock.Lock()
 	defer n.lock.Unlock()
-	n.active = active
+	n.Active = Active
 }
 
 // ------------------Vrr 论文实现方法------------------
@@ -146,7 +146,7 @@ func (n *Node) receiveSetupReq(msg Message) {
 	log.Printf("Node %d: Receiving SETUP_REQ from %d to %d via proxy %d", n.ID, msg.Src, msg.Dst, msg.Proxy)
 
 	// 确定下一跳，排除消息发送者
-	nextHop := n.routingTable.GetNextExclude(msg.Dst, msg.Src)
+	nextHop := n.RoutingTable.GetNextExclude(msg.Dst, msg.Src)
 	// 本节点是src到dst的中间节点
 	if nextHop != 0 {
 		log.Printf("Node %d: Forwarding SETUP_REQ to next hop %d", n.ID, nextHop)
@@ -154,7 +154,7 @@ func (n *Node) receiveSetupReq(msg Message) {
 		return
 	} else {
 		// 本节点就是dst
-		myVset := n.vsetManager.GetAll()
+		myVset := n.VsetManager.GetAll()
 		if n.AddMsgSrcToLocalVset(msg.Src, msg.Vset_) {
 			// 从自己开始setup
 			n.SendSetup(n.ID, msg.Src, n.newPathID(), msg.Proxy, myVset, n.ID, n.ID)
@@ -187,18 +187,18 @@ func (n *Node) receiveSetup(msg Message) {
 	// 确定下一跳
 	var nextHop uint32
 
-	if n.psetManager.IsActiveLinkedPset(msg.Dst) {
+	if n.PsetManager.IsActiveLinkedPset(msg.Dst) {
 		nextHop = msg.Dst
 	} else {
-		nextHop = n.routingTable.GetNext(msg.Proxy)
+		nextHop = n.RoutingTable.GetNext(msg.Proxy)
 	}
-	addedToRoute := n.routingTable.AddRoute(msg.Src, msg.Dst, msg.Sender, nextHop, msg.Pid)
+	addedToRoute := n.RoutingTable.AddRoute(msg.Src, msg.Dst, msg.Sender, nextHop, msg.Pid)
 
 	// 添加路由条目
-	if !addedToRoute || !n.psetManager.IsActiveLinkedPset(msg.Sender) {
+	if !addedToRoute || !n.PsetManager.IsActiveLinkedPset(msg.Sender) {
 		log.Printf("Node %d: Couldn't add route, tearing down path to %d", n.ID, msg.Src)
 		// 故障！要么路由添加失败，要么发送者不再是我的邻居
-		n.routingTable.TearDownPath(msg.Pid, msg.Src, msg.Sender)
+		n.RoutingTable.TearDownPath(msg.Pid, msg.Src, msg.Sender)
 		return
 	}
 
@@ -215,14 +215,14 @@ func (n *Node) receiveSetup(msg Message) {
 			log.Printf("Node %d: Couldn't add %d to vset, tearing down path", n.ID, msg.Src)
 			//  路径本身是好的，但我（目标节点）由于某种策略无法将源节点加入我的vset
 			// 这是一个“逻辑拒绝”，而不是“链路错误”
-			n.routingTable.TearDownPath(msg.Pid, msg.Src, 0)
+			n.RoutingTable.TearDownPath(msg.Pid, msg.Src, 0)
 		}
 		return
 	}
 
 	// 异常情况：无下一跳且目标不是我
 	log.Printf("Node %d: Unexpected setup condition, tearing down path to %d", n.ID, msg.Src)
-	n.routingTable.TearDownPath(msg.Pid, msg.Src, 0)
+	n.RoutingTable.TearDownPath(msg.Pid, msg.Src, 0)
 
 }
 
@@ -245,7 +245,7 @@ Receive (<teardown, <pid,ea>, vset‘>, sender)
 func (n *Node) receiveTeardown(msg Message) {
 	log.Printf("Node %d: Receiving TEARDOWN pathID %d", n.ID, msg.Pid)
 
-	route := n.routingTable.RemoveRoute(msg.Pid, msg.Endpoint)
+	route := n.RoutingTable.RemoveRoute(msg.Pid, msg.Endpoint)
 
 	// 确定下一个要发送teardown的节点，到达ea或eb时，next=0
 	var next uint32
@@ -266,7 +266,7 @@ func (n *Node) receiveTeardown(msg Message) {
 		} else {
 			e = route.Ea
 		}
-		n.vsetManager.Remove(e)
+		n.VsetManager.Remove(e)
 
 		// 如果vset'不为空
 		if len(msg.Vset_) > 0 {
@@ -275,8 +275,8 @@ func (n *Node) receiveTeardown(msg Message) {
 		} else {
 			//
 			// vset'为空，发生了链路错误，通过其他代码重新建立连接
-			proxy, _ := n.psetManager.GetProxy()
-			myVset := n.vsetManager.GetAll()
+			proxy, _ := n.PsetManager.GetProxy()
+			myVset := n.VsetManager.GetAll()
 			n.SendSetupReq(n.ID, e, proxy, myVset, proxy)
 		}
 	}
@@ -298,10 +298,10 @@ func (n *Node) receiveSetupFail(msg Message) {
 	// 确定下一跳
 	var nextHop uint32
 
-	if n.psetManager.IsActiveLinkedPset(msg.Dst) {
+	if n.PsetManager.IsActiveLinkedPset(msg.Dst) {
 		nextHop = msg.Dst
 	} else {
-		nextHop = n.routingTable.GetNext(msg.Proxy)
+		nextHop = n.RoutingTable.GetNext(msg.Proxy)
 	}
 
 	if nextHop != 0 {

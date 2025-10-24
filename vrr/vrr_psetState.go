@@ -47,7 +47,7 @@ var helloTrans = [4][3]uint32{
 type PsetStateUpdate struct {
 	node   uint32
 	trans  int
-	active bool
+	Active bool
 }
 
 // NewPsetStateManager 创建新的 PsetStateManager
@@ -84,24 +84,24 @@ func (psm *PsetStateManager) updateHandler() {
 	// TODO：是否要加锁以安全地访问和修改PSetManager的状态
 	// 使用 for-range 循环不断地从channel中接收任务
 	for tmp := range psm.psetStateUpdateChan {
-		curState, _ := me.psetManager.GetStatus(tmp.node)
+		curState, _ := me.PsetManager.GetStatus(tmp.node)
 		nextState := helloTrans[curState][tmp.trans]
-		curActive, _ := me.psetManager.GetActive(tmp.node)
+		curActive, _ := me.PsetManager.GetActive(tmp.node)
 
 		log.Printf("Node %d: Pset update for %d: %s[%s] ==> %s",
 			me.ID, tmp.node, psetStates[curState], psetTrans[tmp.trans], psetStates[nextState])
 
 		if curState == PSET_UNKNOWN {
-			me.psetManager.Add(tmp.node, nextState, tmp.active)
+			me.PsetManager.Add(tmp.node, nextState, tmp.Active)
 			psm.Update()
-		} else if curState != nextState || curActive != tmp.active {
-			me.psetManager.Update(tmp.node, nextState, tmp.active)
+		} else if curState != nextState || curActive != tmp.Active {
+			me.PsetManager.Update(tmp.node, nextState, tmp.Active)
 			psm.Update()
 		}
 
 		// 检查是否需要为新节点发起setup_req
-		if !me.active && tmp.active && nextState == PSET_LINKED {
-			log.Printf("Node %d: New active/linked neighbor %d found. Sending setup_req to self via proxy %d.", me.ID, tmp.node, tmp.node)
+		if !me.Active && tmp.Active && nextState == PSET_LINKED {
+			log.Printf("Node %d: New Active/linked neighbor %d found. Sending setup_req to self via proxy %d.", me.ID, tmp.node, tmp.node)
 			me.SendSetupReq(me.ID, me.ID, tmp.node, nil, me.ID)
 		}
 	}
@@ -111,7 +111,7 @@ func (psm *PsetStateManager) updateHandler() {
 // Update 更新 PsetState 快照（从 PSetManager 同步数据）
 func (psm *PsetStateManager) Update() {
 	// 清空当前状态
-	pm := psm.ownerNode.psetManager
+	pm := psm.ownerNode.PsetManager
 	psm.LinkActive = psm.LinkActive[:0]
 	psm.LinkNotActive = psm.LinkNotActive[:0]
 	psm.Pending = psm.Pending[:0]
