@@ -53,11 +53,10 @@ type PsetStateUpdate struct {
 // NewPsetStateManager 创建新的 PsetStateManager
 func NewPsetStateManager(owner *Node) *PsetStateManager {
 	psm := &PsetStateManager{
-		ownerNode:     owner,
-		LinkActive:    make([]uint32, 0, VRR_PSET_SIZE),
-		LinkNotActive: make([]uint32, 0, VRR_PSET_SIZE),
-		Pending:       make([]uint32, 0, VRR_PSET_SIZE),
-		// 初始化一个带缓冲的channel作为工作队列，缓冲大小可根据实际情况调整
+		ownerNode:           owner,
+		LinkActive:          make([]uint32, 0, VRR_PSET_SIZE),
+		LinkNotActive:       make([]uint32, 0, VRR_PSET_SIZE),
+		Pending:             make([]uint32, 0, VRR_PSET_SIZE),
 		psetStateUpdateChan: make(chan PsetStateUpdate, 100),
 	}
 	// 启动后台工作者goroutine
@@ -79,7 +78,7 @@ func (psm *PsetStateManager) ScheduleUpdate(update PsetStateUpdate) {
 // updateHandler 是在后台运行的工作者，对应C代码的 pset_update_handler
 func (psm *PsetStateManager) updateHandler() {
 	me := psm.ownerNode
-	log.Printf("Node %d: Pset update handler started.", me.ID)
+	// log.Printf("Node %d: started to receive Hello Msg for updating Pset state", me.ID)
 
 	// TODO：是否要加锁以安全地访问和修改PSetManager的状态
 	// 使用 for-range 循环不断地从channel中接收任务
@@ -103,10 +102,10 @@ func (psm *PsetStateManager) updateHandler() {
 		if !me.Active && tmp.Active && nextState == PSET_LINKED {
 			log.Printf("Node %d: New Active/linked neighbor %d found. Sending setup_req to self via proxy %d.", me.ID, tmp.node, tmp.node)
 			// todo: 参数对应
-			// me.SendSetupReq(me.ID, me.ID, 0, me.ID, tmp.node, nil)
+			me.SendSetupReq(me.ID, me.ID, 0, me.ID, tmp.node, nil)
 		}
 	}
-	log.Printf("Node %d: Pset update handler stopped.", psm.ownerNode.ID)
+	log.Printf("Node %d: ended to receive Hello Msg for updating Pset state", me.ID)
 }
 
 // Update 更新 PsetState 快照（从 PSetManager 同步数据）

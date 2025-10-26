@@ -53,7 +53,7 @@ func (pms *PSetManager) Add(nodeID uint32, status uint32, Active bool) bool {
 
 	// 添加到列表
 	pms.psetList.PushBack(newNode)
-	log.Printf("Node %d: PSet added neighbor %d", pms.ownerNode.ID, nodeID)
+	log.Printf("Node %d: Pset added neighbor %d", pms.ownerNode.ID, nodeID)
 	return true
 }
 
@@ -155,7 +155,7 @@ func (pms *PSetManager) ResetFailCount(nodeID uint32) bool {
 	pNode := pms.Find(nodeID)
 	if pNode != nil {
 		atomic.StoreInt32(&pNode.FailCount, 0)
-		log.Printf("Node %d: PSet reset fail count for neighbor %d", pms.ownerNode.ID, nodeID)
+		log.Printf("Node %d: PSet reset fail count for neighbor Node %d", pms.ownerNode.ID, nodeID)
 		return true
 	}
 	return false

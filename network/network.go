@@ -38,11 +38,11 @@ func (network *Network) deliverMessage(msg vrr.Message) {
 	// 尝试投递到目标节点的inbox
 	select {
 	case targetNode.InboxChan <- msg:
-		log.Printf("network: Delivered message type %d from %d to %d",
-			msg.Type, msg.Src, msg.NextHop)
+		/* 		log.Printf("Network: Delivered message type %s from Node %d to Node %d",
+		vrr.GetMessageTypeString(msg.Type), msg.Src, msg.NextHop) */
 	default:
 		// inbox满了，丢弃消息
-		log.Printf("network: Node %d inbox full, dropping message", msg.NextHop)
+		log.Printf("Network: Node %d inbox full, dropping message", msg.NextHop)
 		network.statsMux.Lock()
 		network.DroppedMessages++
 		network.statsMux.Unlock()
@@ -80,7 +80,7 @@ func (network *Network) RegisterNode(node *vrr.Node) {
 	defer network.nodesMux.Unlock()
 
 	network.Nodes[node.ID] = node
-	log.Printf("network: Registered node %d", node.ID)
+	log.Printf("Network: Registered node %d", node.ID)
 }
 
 // UnregisterNode 从网络注销节点
@@ -94,6 +94,36 @@ func (network *Network) UnregisterNode(nodeID uint32) {
 
 // Send 发送消息的核心实现
 func (network *Network) Send(msg vrr.Message) {
+	// --- 广播逻辑 ---
+	if msg.NextHop == 0 {
+		// log.Printf("Network: Broadcasting message type %d from %d", msg.Type, msg.Src)
+		network.nodesMux.RLock()
+		// 遍历所有注册的节点
+		for _, targetNode := range network.Nodes {
+			// 节点不向自己广播
+			if targetNode.ID == msg.Src {
+				continue
+			}
+
+			// 为每个目标节点创建一个新的消息副本以供发送
+			// 这是为了确保每个 goroutine 操作的是独立的消息实例
+			broadcastMsg := msg
+			broadcastMsg.NextHop = targetNode.ID // 设置单播目标
+
+			// 使用与单播相同的发送逻辑（延迟、丢包）
+			network.sendMessage(broadcastMsg)
+		}
+		network.nodesMux.RUnlock()
+		return
+	}
+
+	// --- 单播逻辑 (保持不变) ---
+	network.sendMessage(msg)
+}
+
+// sendMessage 封装了单个消息的发送逻辑（延迟和丢包）
+// 这是从旧的 Send 方法中提取出来的
+func (network *Network) sendMessage(msg vrr.Message) {
 	network.statsMux.Lock()
 	network.TotalMessages++
 	network.statsMux.Unlock()
@@ -103,7 +133,7 @@ func (network *Network) Send(msg vrr.Message) {
 		network.statsMux.Lock()
 		network.DroppedMessages++
 		network.statsMux.Unlock()
-		log.Printf("network: Packet dropped from %d to %d", msg.Src, msg.NextHop)
+		log.Printf("Network: Packet dropped from Node %d to Node %d", msg.Src, msg.NextHop)
 		return
 	}
 

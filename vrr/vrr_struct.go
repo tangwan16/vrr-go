@@ -42,6 +42,7 @@ func (*SetupReqPayload) isPayload()  {}
 func (*SetupPayload) isPayload()     {}
 func (*SetupFailPayload) isPayload() {}
 func (*TeardownPayload) isPayload()  {}
+func (*DataPayload) isPayload()      {}
 
 // HelloPayload 对应 HELLO 消息
 type HelloPayload struct {
@@ -74,6 +75,10 @@ type TeardownPayload struct {
 	Vset_    []uint32
 }
 
+type DataPayload struct {
+	Data []byte
+}
+
 // Node 模拟一个 VRR 节点
 type Node struct {
 	ID uint32 // 节点的唯一标识符
@@ -95,4 +100,24 @@ type Node struct {
 	VsetManager      *VSetManager         // 虚拟邻居集管理器
 	RoutingTable     *RoutingTableManager // 路由表管理器
 	PsetStateManager *PsetStateManager    // 物理邻居集管理器
+}
+
+// GetMessageTypeString 将消息类型常量转换为可读的字符串
+func GetMessageTypeString(msgType uint8) string {
+	switch msgType {
+	case VRR_HELLO:
+		return "VRR_HELLO"
+	case VRR_SETUP_REQ:
+		return "VRR_SETUP_REQ"
+	case VRR_SETUP:
+		return "VRR_SETUP"
+	case VRR_SETUP_FAIL:
+		return "VRR_SETUP_FAIL"
+	case VRR_TEARDOWN:
+		return "VRR_TEARDOWN"
+	case VRR_DATA:
+		return "VRR_DATA"
+	default:
+		return "UNKNOWN"
+	}
 }

@@ -85,18 +85,15 @@ func NewNode(id uint32, Network Networker) *Node {
 		InboxChan: make(chan Message, 256),
 		StopChan:  make(chan struct{}),
 		Network:   Network,
-		Active:    false,
+		Active:    true,
 	}
 
 	// 为这个新节点创建一套独立的管理器
 	n.PsetManager = NewPSetManager(n)
-	fmt.Println("psetManager created for node done")
 	n.VsetManager = NewVSetManager(n)
-	fmt.Println("VsetManager created for node done")
 	n.RoutingTable = NewRoutingTableManager(n)
-	fmt.Println("routingTable created for node done")
 	n.PsetStateManager = NewPsetStateManager(n)
-	fmt.Println("psetStateManager created for node done")
+	fmt.Printf("psetManager、VsetManager、psetStateManager、routingTable created for node %d done\n", n.ID)
 
 	return n
 }

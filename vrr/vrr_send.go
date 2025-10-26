@@ -77,8 +77,9 @@ func (n *Node) SendTeardown(pathID, endpoint uint32, vset_ []uint32, nextHop uin
 		Type:    VRR_TEARDOWN,
 		Src:     n.ID, // Teardown 消息由当前节点发起
 		Dst:     0,    // 通常是广播或沿路径反向传播，具体取决于协议
-		NextHop: nextHop,
 		Sender:  n.ID,
+		NextHop: nextHop,
+
 		Payload: &TeardownPayload{
 			Pid:      pathID,
 			Endpoint: endpoint,
@@ -90,8 +91,8 @@ func (n *Node) SendTeardown(pathID, endpoint uint32, vset_ []uint32, nextHop uin
 	return true
 }
 
-// SendHelloPkt 构建并发送一个 hello 数据包（广播）
-func (n *Node) SendHelloPkt() bool {
+// SendHello 构建并发送一个 hello 数据包（广播）
+func (n *Node) SendHello() bool {
 	log.Printf("Node %d: SendHelloPkt (broadcasting)", n.ID)
 
 	// 更新 psetState 快照
@@ -116,7 +117,7 @@ func (n *Node) SendHelloPkt() bool {
 }
 
 // SendData 发送数据消息
-/* func (n *Node) SendData(dest uint32, payload []byte) bool {
+func (n *Node) SendData(dest uint32, data []byte) bool {
 	// 查找路由
 	nextHop := n.RoutingTable.GetNext(dest)
 	if nextHop == 0 {
@@ -130,13 +131,16 @@ func (n *Node) SendHelloPkt() bool {
 		Type:    VRR_DATA,
 		Src:     n.ID,
 		Dst:     dest,
+		Sender:  n.ID,
 		NextHop: nextHop,
-		Payload: append([]byte(nil), payload...), // 复制 payload
+		Payload: &DataPayload{
+			Data: append([]byte(nil), data...),
+		},
 	}
 
 	n.Network.Send(msg)
 	return true
-} */
+}
 
 // newPathID 作为 Node 的方法生成一个随机的 32 位路径 ID
 // 确保生成的 ID 不与当前节点的 vset 中的任何节点 ID 冲突

@@ -17,7 +17,7 @@ const (
 // --- 节点消息处理器 ---
 // ProcessMessage 是节点的消息处理入口点
 func (n *Node) rcvMessage(msg Message) {
-	log.Printf("Node %d: Received message type %d from %d to %d", n.ID, msg.Type, msg.Src, msg.Dst)
+	log.Printf("Node %d: Received message type %s from Node %d to Node %d", n.ID, GetMessageTypeString(msg.Type), msg.Src, msg.Dst)
 
 	// 重置相关超时和失败计数
 	n.ResetActiveTimeout()
@@ -56,41 +56,39 @@ func (n *Node) rcvMessage(msg Message) {
 		} else {
 			log.Printf("Node %d: Invalid payload for TEARDOWN message", n.ID)
 		}
-	// case VRR_DATA:
-	// 	if payload, ok := msg.Payload.(*DataPayload); ok {
-	// 		n.receiveData(msg, payload)
-	// 	} else {
-	// 		log.Printf("Node %d: Invalid payload for DATA message", n.ID)
-	// 	}
+	case VRR_DATA:
+		if payload, ok := msg.Payload.(*DataPayload); ok {
+			n.receiveData(msg, payload)
+		} else {
+			log.Printf("Node %d: Invalid payload for DATA message", n.ID)
+		}
 	default:
-		log.Printf("Node %d: Unknown message type: %d", n.ID, msg.Type)
+		log.Printf("Node %d: Unknown message type: %s", n.ID, GetMessageTypeString(msg.Type))
 	}
 }
 
 // --- 各类型消息处理函数 ---
 // receiveData 处理数据消息
-// func (n *Node) receiveData(msg Message) {
-// 	log.Printf("Node %d: Handling DATA message from %d to %d", n.ID, msg.Src, msg.Dst)
+func (n *Node) receiveData(msg Message, payload *DataPayload) {
+	if msg.Dst == n.ID {
+		// 数据包到达目的地
+		log.Printf("Node %d: Data packet delivered from %d, payload size: %d",
+			n.ID, msg.Src, len(payload.Data))
+		// TODO: 递交给上层应用|Data处理逻辑
+	} else {
+		nextHop := n.RoutingTable.GetNext(msg.Dst)
+		if nextHop == 0 {
+			log.Printf("Node %d: No route to forward data to %d", n.ID, msg.Dst)
+			return
+		}
 
-// 	if msg.Dst == n.ID {
-// 		// 数据包到达目的地
-// 		log.Printf("Node %d: Data packet delivered from %d, payload size: %d",
-// 			n.ID, msg.Src, len(msg.Payload))
-// 		// TODO: 递交给上层应用
-// 	} else {
-// 		// 需要转发
-// 		nextHop := n.RoutingTable.GetNext(msg.Dst)
-// 		if nextHop == 0 {
-// 			log.Printf("Node %d: No route to forward data to %d", n.ID, msg.Dst)
-// 			return
-// 		}
+		// 转发DataMsg
+		msg.NextHop = nextHop
+		n.Network.Send(msg)
 
-// 		// 更新NextHop并转发
-// 		msg.NextHop = nextHop
-// 		n.Network.Send(msg)
-// 		log.Printf("Node %d: Forwarded data to %d via %d", n.ID, msg.Dst, nextHop)
-// 	}
-// }
+		log.Printf("Node %d: Forwarded data to %d via %d", n.ID, msg.Dst, nextHop)
+	}
+}
 
 // receiveHello 处理Hello消息
 func (n *Node) receiveHello(msg Message, payload *HelloPayload) {
@@ -98,8 +96,6 @@ func (n *Node) receiveHello(msg Message, payload *HelloPayload) {
 	trans := TRANS_MISSING // 默认是 MISSING
 	me := n
 	actitve := payload.SenderActive
-
-	log.Printf("Node %d: Handling HELLO message from %d", n.ID, msg.Src)
 
 	if len(payload.HelloInfoLinkActive) > VRR_PSET_SIZE && len(payload.HelloInfoLinkNotActive) > VRR_PSET_SIZE && len(payload.HelloInfoPending) > VRR_PSET_SIZE {
 		log.Printf("Node %d: Invalid HELLO message, empty HelloInfo", n.ID)
@@ -168,24 +164,28 @@ func (n *Node) setActive(Active bool) {
 // handleSetupReq 处理Setup请求消息
 // to do：缺乏 vset' 的处理
 func (n *Node) receiveSetupReq(msg Message, payload *SetupReqPayload) {
-	log.Printf("Node %d: Receiving SETUP_REQ from %d to %d via proxy %d", n.ID, msg.Src, msg.Dst, msg.Proxy)
 
 	// 确定下一跳，排除消息发送者
 	nextHop := n.RoutingTable.GetNextExclude(msg.Dst, msg.Src)
 	// 本节点是src到dst的中间节点
 	if nextHop != 0 {
 		log.Printf("Node %d: Forwarding SETUP_REQ to next hop %d", n.ID, nextHop)
-		n.SendSetupReq(msg.Src, msg.Dst, payload.Proxy, payload.Vset_, nextHop)
+		// 1. 更新消息信封的路由信息
+		msg.Sender = n.ID
+		msg.NextHop = nextHop
+		// 2. 直接将修改后的消息发送出去
+		n.Network.Send(msg)
+		// n.SendSetupReq(msg.Src, msg.Dst, n.ID, nextHop, payload.Proxy, payload.Vset_)
 		return
 	} else {
 		// 本节点就是dst
 		myVset := n.VsetManager.GetAll()
 		if n.AddMsgSrcToLocalVset(msg.Src, payload.Vset_) {
 			// 从自己开始setup
-			n.SendSetup(n.ID, msg.Src, n.newPathID(), payload.Proxy, myVset, n.ID, n.ID)
+			n.SendSetup(n.ID, msg.Src, n.ID, n.ID, n.newPathID(), payload.Proxy, myVset)
 		} else {
 			// 添加失败，发送Setup失败消息
-			n.SendSetupFail(n.ID, msg.Src, payload.Proxy, myVset, n.ID)
+			n.SendSetupFail(n.ID, msg.Src, n.ID, n.ID, payload.Proxy, myVset)
 		}
 	}
 }
@@ -207,8 +207,6 @@ Receive (<setup,src,dst,proxy,vset'>, sender)
 */
 // receiveSetup 处理Setup消息
 func (n *Node) receiveSetup(msg Message, payload *SetupPayload) {
-	log.Printf("Node %d: Receiving SETUP from %d to %d, pathID %d, proxy %d,sender %d", n.ID, msg.Src, msg.Dst, msg.Pid, msg.Proxy, msg.Sender)
-
 	// 确定下一跳
 	var nextHop uint32
 
@@ -229,7 +227,12 @@ func (n *Node) receiveSetup(msg Message, payload *SetupPayload) {
 
 	// 若还有下一跳，则继续转发 setup
 	if nextHop != 0 {
-		n.SendSetup(msg.Src, msg.Dst, payload.Pid, payload.Proxy, payload.Vset_, nextHop, n.ID)
+		// 1. 更新消息信封的路由信息
+		msg.Sender = n.ID
+		msg.NextHop = nextHop
+		// 2. 直接将修改后的消息发送出去
+		n.Network.Send(msg)
+		// n.SendSetup(msg.Src, msg.Dst, n.ID, nextHop, payload.Pid, payload.Proxy, payload.Vset_)
 		return
 	}
 
@@ -268,21 +271,25 @@ Receive (<teardown, <pid,ea>, vset‘>, sender)
 */
 // receiveTeardown 处理Teardown消息
 func (n *Node) receiveTeardown(msg Message, payload *TeardownPayload) {
-	log.Printf("Node %d: Receiving TEARDOWN pathID %d", n.ID, msg.Pid)
 
 	route := n.RoutingTable.RemoveRoute(payload.Pid, payload.Endpoint)
 
 	// 确定下一个要发送teardown的节点，到达ea或eb时，next=0
-	var next uint32
+	var nextHop uint32
 	if msg.Sender == route.Na {
-		next = route.Nb
+		nextHop = route.Nb
 	} else {
-		next = route.Na
+		nextHop = route.Na
 	}
 
-	if next != 0 {
+	if nextHop != 0 {
 		// ea 和 eb中间节点
-		n.SendTeardown(payload.Pid, payload.Endpoint, payload.Vset_, next)
+		// 1. 更新消息信封的路由信息
+		msg.Sender = n.ID
+		msg.NextHop = nextHop
+		// 2. 直接将修改后的消息发送出去
+		n.Network.Send(msg)
+		// n.SendTeardown(payload.Pid, payload.Endpoint, payload.Vset_, next)
 	} else {
 		// 到达ea或eb节点，更新本地vset
 		var e uint32
@@ -302,7 +309,7 @@ func (n *Node) receiveTeardown(msg Message, payload *TeardownPayload) {
 			// vset'为空，发生了链路错误，通过其他代码重新建立连接
 			proxy, _ := n.PsetManager.GetProxy()
 			myVset := n.VsetManager.GetAll()
-			n.SendSetupReq(n.ID, e, proxy, myVset, proxy)
+			n.SendSetupReq(n.ID, e, 0, proxy, proxy, myVset)
 		}
 	}
 }
@@ -317,9 +324,6 @@ Receive (<setup_fail,src,dst,proxy,vset'>, sender)
 */
 // receiveSetupFail 处理Setup失败消息
 func (n *Node) receiveSetupFail(msg Message, payload *SetupFailPayload) {
-	log.Printf("Node %d: Handling SETUP_FAIL from %d to %d via proxy %d",
-		n.ID, msg.Src, msg.Dst, payload.Proxy)
-
 	// 确定下一跳
 	var nextHop uint32
 
@@ -331,7 +335,11 @@ func (n *Node) receiveSetupFail(msg Message, payload *SetupFailPayload) {
 
 	if nextHop != 0 {
 		// 转发Setup失败消息
-		n.SendSetupFail(msg.Src, msg.Dst, payload.Proxy, payload.Vset_, nextHop)
+		// 1、更新消息信封的路由信息并转发
+		msg.Sender = n.ID
+		msg.NextHop = nextHop
+		n.Network.Send(msg)
+		// n.SendSetupFail(msg.Src, msg.Dst, n.ID, nextHop, payload.Proxy, payload.Vset_)
 	} else if msg.Dst == n.ID {
 		// 自己是目的地，将src添加到vset并处理
 		srcVsetWithSrc := append(payload.Vset_, msg.Src)
