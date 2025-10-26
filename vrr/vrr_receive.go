@@ -92,18 +92,24 @@ func (n *Node) receiveData(msg Message, payload *DataPayload) {
 
 // receiveHello 处理Hello消息
 func (n *Node) receiveHello(msg Message, payload *HelloPayload) {
-	src := msg.Src
-	trans := TRANS_MISSING // 默认是 MISSING
-	me := n
-	actitve := payload.SenderActive
-
-	if len(payload.HelloInfoLinkActive) > VRR_PSET_SIZE && len(payload.HelloInfoLinkNotActive) > VRR_PSET_SIZE && len(payload.HelloInfoPending) > VRR_PSET_SIZE {
-		log.Printf("Node %d: Invalid HELLO message, empty HelloInfo", n.ID)
+	if len(payload.HelloInfoLinkActive) > VRR_PSET_SIZE || len(payload.HelloInfoLinkNotActive) > VRR_PSET_SIZE || len(payload.HelloInfoPending) > VRR_PSET_SIZE {
+		log.Printf("Node %d: Invalid HelloInfo Size.Dropping packet.", n.ID)
 		return
 	}
 
+	// 解析HELLO 元数据消息内容
+	active := payload.SenderActive
+	linkActive := payload.HelloInfoLinkActive
+	linkNotActive := payload.HelloInfoLinkNotActive
+	pending := payload.HelloInfoPending
+	// 解析hello消息的路由消息内容
+	src := msg.Src
+
+	trans := TRANS_MISSING // 默认是 MISSING
+	me := n
+
 	// 检查自己是否在发送者的物理邻居集中
-	for _, nodeID := range payload.HelloInfoLinkActive {
+	for _, nodeID := range linkActive {
 		if nodeID == me.ID {
 			trans = TRANS_LINKED
 			break
@@ -111,15 +117,15 @@ func (n *Node) receiveHello(msg Message, payload *HelloPayload) {
 	}
 
 	// 检查自己是否在发送者的非活跃邻居集中
-	for _, nodeID := range payload.HelloInfoLinkNotActive {
+	for _, nodeID := range linkNotActive {
 		if nodeID == me.ID {
-			trans = TRANS_MISSING
+			trans = TRANS_LINKED
 			break
 		}
 	}
 
 	// 检查自己是否在发送者的待定邻居集中
-	for _, nodeID := range payload.HelloInfoPending {
+	for _, nodeID := range pending {
 		if nodeID == n.ID {
 			trans = TRANS_PENDING
 			break
@@ -128,7 +134,7 @@ func (n *Node) receiveHello(msg Message, payload *HelloPayload) {
 	update := PsetStateUpdate{
 		node:   src,
 		trans:  trans,
-		Active: actitve,
+		active: active,
 	}
 	// 将任务交给PsetStateManager的工作队列
 	n.PsetStateManager.ScheduleUpdate(update)

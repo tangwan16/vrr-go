@@ -23,7 +23,7 @@ func main() {
 	network.RegisterNode(node2)
 
 	// 2. 定义物理拓扑（插上网线）
-	setupPhysicalNeighbors(node1, node2)
+	// setupPhysicalNeighbors(node1, node2)
 
 	// 3. 启动节点（开始监听和处理消息）
 	node1.Start()
@@ -32,23 +32,36 @@ func main() {
 	// 4. 手动激活 node1 和 node2，并让他们互相发送HELLO来建立LINKED状态
 	// 这模拟了一个已经运行了一段时间的稳定网络
 	node1.SendHello()
-	time.Sleep(1000 * time.Millisecond) // 等待消息处理
+	time.Sleep(200 * time.Millisecond) // 等待消息处理
 	node2.SendHello()
-	time.Sleep(1000 * time.Millisecond) // 等待消息处理
+	time.Sleep(200 * time.Millisecond) // 等待消息处理
+
+	// 第 2 轮交换: 双方进入 LINKED 状态
+	log.Println("\n--- Handshake Round 2 ---")
+	node1.SendHello()
+	time.Sleep(200 * time.Millisecond) // 等待 node2 处理
+	node2.SendHello()
+	time.Sleep(200 * time.Millisecond) // 等待 node1 处理
+
+	/* 	log.Println("\n--- Handshake Round 3---")
+	   	node1.SendHello()
+	   	time.Sleep(200 * time.Millisecond) // 等待 node2 处理
+	   	node2.SendHello()
+	   	time.Sleep(200 * time.Millisecond) // 等待 node1 处理 */
 	// log.Printf("Node 1 and 2 are now active and mutually LINKED.")
 
 	// --- 阶段 2: 模拟新节点 Node 3 加入 ---
-	log.Println("\n--- Phase 2: A new node (Node 3) joins the network ---")
-	node3 := vrr.NewNode(3, network)
+	// log.Println("--- Phase 2: A new node (Node 3) joins the network ---")
+	// node3 := vrr.NewNode(3, network)
 
 	// 1. Node 3 存在于网络世界中
-	network.RegisterNode(node3)
+	// network.RegisterNode(node3)
 
 	// 2. 将 Node 3 的网线插入到与 Node 2 相连的交换机上
-	setupPhysicalNeighbors(node2, node3)
+	// setupPhysicalNeighbors(node2, node3)
 
 	// 3. Node 3 上电，开始运行协议栈
-	node3.Start()
+	// node3.Start()
 	// log.Printf("Node 3 created, started, and physically linked to Node 2. It is currently NOT ACTIVE.")
 
 	// --- 阶段 3: 观察协议的自驱动“节点加入”流程 ---
@@ -60,7 +73,7 @@ func main() {
 
 	node1.Stop()
 	node2.Stop()
-	node3.Stop()
+	// node3.Stop()
 
 	totalMsgs, droppedMsgs := network.GetMsgInfo()
 	log.Printf("Simulation completed: Total messages: %d, Dropped: %d", totalMsgs, droppedMsgs)
@@ -69,9 +82,9 @@ func main() {
 // setupPhysicalNeighbors 模拟“插上网线”，定义物理拓扑
 func setupPhysicalNeighbors(node1 *vrr.Node, node2 *vrr.Node) {
 	// 在Pset中创建条目，状态为UNKNOWN，等待HELLO协议去协商
-	node1.PsetManager.Add(node2.ID, vrr.PSET_UNKNOWN, false)
-	node2.PsetManager.Add(node1.ID, vrr.PSET_UNKNOWN, false)
-	log.Printf("Physical link defined between Node %d and Node %d.", node1.ID, node2.ID)
+	/* 	node1.PsetManager.Add(node2.ID, vrr.PSET_UNKNOWN, false)
+	   	node2.PsetManager.Add(node1.ID, vrr.PSET_UNKNOWN, false) */
+	// log.Printf("Physical link defined between Node %d and Node %d.", node1.ID, node2.ID)
 }
 
 // runNodeJoinSimulation 运行并解说“节点加入”的完整流程

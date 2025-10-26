@@ -12,6 +12,7 @@ const (
 	TRANS_LINKED  = 0
 	TRANS_PENDING = 1
 	TRANS_MISSING = 2
+
 	// 邻居状态
 	PSET_LINKED  = 0
 	PSET_PENDING = 1
@@ -38,6 +39,7 @@ var helloTrans = [4][3]uint32{
 	/* PSET_LINKED */ {PSET_LINKED, PSET_LINKED, PSET_FAILED},
 	/* PSET_PENDING */ {PSET_LINKED, PSET_LINKED, PSET_PENDING},
 	/* PSET_FAILED */ {PSET_FAILED, PSET_PENDING, PSET_PENDING},
+	// /* PSET_UNKNOWN */ {PSET_LINKED, PSET_LINKED, PSET_PENDING},
 	/* PSET_UNKNOWN */ {PSET_FAILED, PSET_LINKED, PSET_PENDING},
 }
 
@@ -47,7 +49,7 @@ var helloTrans = [4][3]uint32{
 type PsetStateUpdate struct {
 	node   uint32
 	trans  int
-	Active bool
+	active bool
 }
 
 // NewPsetStateManager 创建新的 PsetStateManager
@@ -87,19 +89,19 @@ func (psm *PsetStateManager) updateHandler() {
 		nextState := helloTrans[curState][tmp.trans]
 		curActive, _ := me.PsetManager.GetActive(tmp.node)
 
-		log.Printf("Node %d: Pset update for %d: %s[%s] ==> %s",
+		log.Printf("Node %d: Pset update for Node %d: %s[%s] ==> %s",
 			me.ID, tmp.node, psetStates[curState], psetTrans[tmp.trans], psetStates[nextState])
 
 		if curState == PSET_UNKNOWN {
-			me.PsetManager.Add(tmp.node, nextState, tmp.Active)
+			me.PsetManager.Add(tmp.node, nextState, tmp.active)
 			psm.Update()
-		} else if curState != nextState || curActive != tmp.Active {
-			me.PsetManager.Update(tmp.node, nextState, tmp.Active)
+		} else if curState != nextState || curActive != tmp.active {
+			me.PsetManager.Update(tmp.node, nextState, tmp.active)
 			psm.Update()
 		}
 
 		// 检查是否需要为新节点发起setup_req
-		if !me.Active && tmp.Active && nextState == PSET_LINKED {
+		if !me.Active && tmp.active && nextState == PSET_LINKED {
 			log.Printf("Node %d: New Active/linked neighbor %d found. Sending setup_req to self via proxy %d.", me.ID, tmp.node, tmp.node)
 			// todo: 参数对应
 			me.SendSetupReq(me.ID, me.ID, 0, me.ID, tmp.node, nil)

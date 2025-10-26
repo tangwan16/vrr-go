@@ -35,10 +35,11 @@ func NewPSetManager(owner *Node) *PSetManager {
 func (pms *PSetManager) Add(nodeID uint32, status uint32, Active bool) bool {
 	pms.lock.Lock()
 	defer pms.lock.Unlock()
-
+	log.Printf("Node %d: Started to add neighbor Node %d", pms.ownerNode.ID, nodeID)
 	// 检查节点是否已存在
 	for e := pms.psetList.Front(); e != nil; e = e.Next() {
 		if e.Value.(*PsetNode).NodeId == nodeID {
+			log.Printf("Node %d: Neighbor Node %d already exists", pms.ownerNode.ID, nodeID)
 			return false // 节点已存在
 		}
 	}
@@ -53,7 +54,7 @@ func (pms *PSetManager) Add(nodeID uint32, status uint32, Active bool) bool {
 
 	// 添加到列表
 	pms.psetList.PushBack(newNode)
-	log.Printf("Node %d: Pset added neighbor %d", pms.ownerNode.ID, nodeID)
+	log.Printf("Node %d: Ended to add neighbor Node %d", pms.ownerNode.ID, nodeID)
 	return true
 }
 

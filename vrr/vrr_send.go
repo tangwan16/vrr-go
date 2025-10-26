@@ -102,8 +102,8 @@ func (n *Node) SendHello() bool {
 		Type:    VRR_HELLO,
 		Src:     n.ID,
 		Dst:     0, // 广播地址
-		NextHop: 0, // 广播，无需指定下一跳
 		Sender:  n.ID,
+		NextHop: 0, // 广播，无需指定下一跳
 		Payload: &HelloPayload{
 			SenderActive:           n.Active,
 			HelloInfoLinkActive:    append([]uint32(nil), n.PsetStateManager.LinkActive...),
