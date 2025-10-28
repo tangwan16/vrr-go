@@ -88,7 +88,7 @@ type Node struct {
 	Network Networker // 对模拟网络的引用，用于发送消息
 
 	lock   sync.RWMutex // 保护节点内部状态（如active）的读写锁
-	Active bool         // 节点是否活跃，对应 vrr_node.Active
+	Active bool         // 节点是否在虚拟集合和路由中 receive setup会设置为active=true
 
 	Timeout int // 活跃状态超时计数器，对应 vrr_node.Timeout
 

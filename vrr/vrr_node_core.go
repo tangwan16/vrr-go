@@ -70,6 +70,7 @@ func NewNode(id uint32, Network Networker) *Node {
 
 // --------------------public api-----------------------------
 // SetActive 设置节点活跃状态
+// to do :修改active的逻辑
 func (n *Node) SetActive(active bool) {
 	n.lock.Lock()
 	defer n.lock.Unlock()

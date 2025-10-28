@@ -299,8 +299,7 @@ func (n *Node) receiveTeardown(msg Message, payload *TeardownPayload) {
 			//
 			// vset'为空，发生了链路错误，通过其他代码重新建立连接
 			proxy, _ := n.PsetManager.GetProxy()
-			myVset := n.VsetManager.GetAll()
-			n.SendSetupReq(n.ID, e, 0, proxy, proxy, myVset)
+			n.SendSetupReq(n.ID, e, proxy)
 		}
 	}
 }

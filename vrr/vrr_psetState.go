@@ -95,24 +95,25 @@ func (psm *PsetStateManager) updateHandler() {
 			me.ID, tmp.node, psetStates[curState], psetTrans[tmp.trans], psetStates[nextState])
 
 		if curState == PSET_UNKNOWN {
+			// 发送Hello消息节点为新节点，添加到PSet中
 			me.PsetManager.Add(tmp.node, nextState, tmp.active)
 			psm.Update()
 		} else if curState != nextState || curActive != tmp.active {
+			// 状态或活跃性有变化，更新PSet
 			me.PsetManager.Update(tmp.node, nextState, tmp.active)
 			psm.Update()
 		}
 
-		// 检查是否需要为新节点发起setup_req
+		// 非活跃节点(未在虚拟邻居集中),找到一个已加入网络活跃的节点，发送setup_req请求
 		if !me.Active && tmp.active && nextState == PSET_LINKED {
 			log.Printf("Node %d: New Active/linked neighbor %d found. Sending setup_req to self via proxy %d.", me.ID, tmp.node, tmp.node)
-			// todo: 参数对应
-			me.SendSetupReq(me.ID, me.ID, 0, me.ID, tmp.node, nil)
+			me.SendSetupReq(me.ID, me.ID, tmp.node)
 		}
 	}
 	log.Printf("Node %d: ended to receive Hello Msg for updating Pset state", me.ID)
 }
 
-// Update 更新 PsetState 快照（从 PSetManager 同步数据）
+// Update ：根据pset 更新 PsetState
 func (psm *PsetStateManager) Update() {
 	// 清空当前状态
 	pm := psm.ownerNode.PsetManager
