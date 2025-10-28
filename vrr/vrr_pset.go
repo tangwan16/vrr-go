@@ -2,8 +2,10 @@ package vrr
 
 import (
 	"container/list"
+	"fmt"
 	"log"
 	"math/rand"
+	"strings"
 	"sync"
 	"sync/atomic"
 )
@@ -195,6 +197,32 @@ func (pms *PSetManager) IsActiveLinkedPset(nodeID uint32) bool {
 
 	// 未找到该节点，返回 false
 	return false
+}
+
+// String 返回 PSetManager 状态的可读字符串表示形式
+func (pms *PSetManager) String() string {
+	pms.lock.RLock() // 使用读锁
+	defer pms.lock.RUnlock()
+
+	if pms.psetList.Len() == 0 {
+		return "PSet: {empty}"
+	}
+
+	var builder strings.Builder
+	builder.WriteString("PSet: {")
+	count := 0
+	for e := pms.psetList.Front(); e != nil; e = e.Next() {
+		pNode := e.Value.(*PsetNode)
+		// psetStates 在 vrr_psetState.go 中定义，可以直接使用
+		statusStr := psetStates[pNode.Status]
+		builder.WriteString(fmt.Sprintf("Neighbor %d: %s", pNode.NodeId, statusStr))
+		if e.Next() != nil {
+			builder.WriteString(", ")
+		}
+		count++
+	}
+	builder.WriteString("}")
+	return builder.String()
 }
 
 // -------------------VRR 论文方法实现------------------------------

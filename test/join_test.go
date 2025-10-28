@@ -2,13 +2,14 @@ package main
 
 import (
 	"log"
+	"testing"
 	"time"
 
 	"github.com/tangwan16/vrr-go/network"
 	"github.com/tangwan16/vrr-go/vrr"
 )
 
-func main() {
+func TestNodeJoin(t *testing.T) {
 	// 创建全局网络,设置延迟50ms和丢包率为0%
 	// 这模拟了一个单一的 Layer 2 广播域（像一个大交换机）
 	network := network.NewNetwork(50*time.Millisecond, 0.0)
@@ -42,13 +43,6 @@ func main() {
 	time.Sleep(200 * time.Millisecond) // 等待 node2 处理
 	node2.SendHello()
 	time.Sleep(200 * time.Millisecond) // 等待 node1 处理
-
-	/* 	log.Println("\n--- Handshake Round 3---")
-	   	node1.SendHello()
-	   	time.Sleep(200 * time.Millisecond) // 等待 node2 处理
-	   	node2.SendHello()
-	   	time.Sleep(200 * time.Millisecond) // 等待 node1 处理 */
-	// log.Printf("Node 1 and 2 are now active and mutually LINKED.")
 
 	// --- 阶段 2: 模拟新节点 Node 3 加入 ---
 	// log.Println("--- Phase 2: A new node (Node 3) joins the network ---")
@@ -111,11 +105,11 @@ func runNodeJoinSimulation(proxyNode, newNode *vrr.Node) {
 	time.Sleep(500 * time.Millisecond) // 等待 setup_req 的路由和 setup 的回复
 
 	// 步骤 5 & 6: 新节点收到setup，处理vset，并向其他虚拟邻居发送setup_req
-	log.Println("\n[Step 5 & 6] New Node %d receives the <setup> message, processes the vset, and may send further setup_reqs to establish all vset-paths.")
+	// log.Println("\n[Step 5 & 6] New Node %d receives the <setup> message, processes the vset, and may send further setup_reqs to establish all vset-paths.")
 	time.Sleep(500 * time.Millisecond)
 
 	// 步骤 7: 新节点成为活跃状态
-	log.Println("\n[Step 7] After establishing paths, New Node %d becomes active.", newNode.ID)
+	// log.Println("\n[Step 7] After establishing paths, New Node %d becomes active.", newNode.ID)
 	// 在真实协议中，当与所有vset邻居的路径都建立后，节点会自我激活。
 	// 在我们的模拟中，我们可以在这里检查vset状态或简单地手动激活来表示流程结束。
 

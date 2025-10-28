@@ -22,6 +22,10 @@ type Network struct {
 	TotalMessages   uint64       // 总发送消息数
 	DroppedMessages uint64       // 丢失消息数
 	statsMux        sync.RWMutex // 统计信息锁
+
+	SubnetTopology map[uint32][]uint32 // 新增：子网拓扑。key: 子网ID, value: 该子网中的节点ID列表
+	NodeToSubnet   map[uint32][]uint32 // 新增：节点到子网的反向映射。key: 节点ID, value: 该节点所属的子网ID列表
+	topologyMux    sync.RWMutex
 }
 
 // deliverMessage 实际投递消息到目标节点
@@ -68,19 +72,28 @@ func (network *Network) shouldDropPacket() bool {
 // NewNetwork 创建 Network
 func NewNetwork(Latency time.Duration, PacketLoss float32) *Network {
 	return &Network{
-		Nodes:      make(map[uint32]*vrr.Node),
-		Latency:    Latency,
-		PacketLoss: PacketLoss,
+		Nodes:          make(map[uint32]*vrr.Node),
+		Latency:        Latency,
+		PacketLoss:     PacketLoss,
+		SubnetTopology: make(map[uint32][]uint32), // 初始化
+		NodeToSubnet:   make(map[uint32][]uint32), // 初始化
 	}
 }
 
 // RegisterNode 注册节点到网络
-func (network *Network) RegisterNode(node *vrr.Node) {
+func (network *Network) RegisterNode(node *vrr.Node, subnetIDs ...uint32) {
 	network.nodesMux.Lock()
+	network.Nodes[node.ID] = node
 	defer network.nodesMux.Unlock()
 
-	network.Nodes[node.ID] = node
-	log.Printf("Network: Registered node %d", node.ID)
+	network.topologyMux.Lock()
+	defer network.topologyMux.Unlock()
+	network.NodeToSubnet[node.ID] = subnetIDs
+	for _, subnetID := range subnetIDs {
+		network.SubnetTopology[subnetID] = append(network.SubnetTopology[subnetID], node.ID)
+	}
+
+	log.Printf("Network: Registered node %d to subnet(s) %v", node.ID, subnetIDs)
 }
 
 // UnregisterNode 从网络注销节点
@@ -96,24 +109,35 @@ func (network *Network) UnregisterNode(nodeID uint32) {
 func (network *Network) Send(msg vrr.Message) {
 	// --- 广播逻辑 ---
 	if msg.NextHop == 0 {
-		// log.Printf("Network: Broadcasting message type %d from %d", msg.Type, msg.Src)
-		network.nodesMux.RLock()
-		// 遍历所有注册的节点
-		for _, targetNode := range network.Nodes {
-			// 节点不向自己广播
-			if targetNode.ID == msg.Src {
-				continue
-			}
+		network.topologyMux.RLock()
+		defer network.topologyMux.RUnlock()
 
-			// 为每个目标节点创建一个新的消息副本以供发送
-			// 这是为了确保每个 goroutine 操作的是独立的消息实例
-			broadcastMsg := msg
-			broadcastMsg.NextHop = targetNode.ID // 设置单播目标
-
-			// 使用与单播相同的发送逻辑（延迟、丢包）
-			network.sendMessage(broadcastMsg)
+		// 找到发送者所在的子网
+		senderSubnets, ok := network.NodeToSubnet[msg.Src]
+		if !ok || len(senderSubnets) == 0 {
+			log.Printf("Network: Broadcast failed. Sender %d is not in any subnet.", msg.Src)
+			return
 		}
-		network.nodesMux.RUnlock()
+
+		// 使用一个 map 来防止向同一个节点发送多次广播（当一个节点属于多个子网时）
+		sentTo := make(map[uint32]bool)
+
+		// 遍历发送者所在的所有子网
+		for _, subnetID := range senderSubnets {
+			log.Printf("Network: Broadcasting message type %s from %d in subnet %d", vrr.GetMessageTypeString(msg.Type), msg.Src, subnetID)
+			// 向该子网内的所有节点广播
+			for _, targetNodeID := range network.SubnetTopology[subnetID] {
+				// 节点不向自己广播，且不重复广播
+				if targetNodeID == msg.Src || sentTo[targetNodeID] {
+					continue
+				}
+
+				broadcastMsg := msg
+				broadcastMsg.NextHop = targetNodeID
+				network.sendMessage(broadcastMsg)
+				sentTo[targetNodeID] = true
+			}
+		}
 		return
 	}
 
