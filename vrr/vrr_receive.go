@@ -140,21 +140,6 @@ func (n *Node) receiveHello(msg Message, payload *HelloPayload) {
 	n.PsetStateManager.ScheduleUpdate(update)
 }
 
-// --------------------public api-----------------------------
-// resetActiveTimeout 重置活跃超时
-func (n *Node) resetActiveTimeout() {
-	n.lock.Lock()
-	defer n.lock.Unlock()
-	n.Timeout = 0 // 重置超时计数器
-}
-
-// setActive 设置节点活跃状态
-func (n *Node) setActive(Active bool) {
-	n.lock.Lock()
-	defer n.lock.Unlock()
-	n.Active = Active
-}
-
 // ------------------Vrr 论文实现方法------------------
 /* Receive (<setup_req,src,dst,proxy,vset'>, sender)
    nh := NextHopExclude(rt, dst, src)

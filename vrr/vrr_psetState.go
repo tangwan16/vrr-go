@@ -1,7 +1,9 @@
 package vrr
 
 import (
+	"fmt"
 	"log"
+	"strings"
 	"sync"
 )
 
@@ -131,4 +133,21 @@ func (psm *PsetStateManager) Update() {
 			psm.Pending = append(psm.Pending, pNode.NodeId)
 		}
 	}
+}
+
+// -------------------public api-----------------------------
+// String 返回 PsetStateManager 状态的可读字符串表示形式
+func (psm *PsetStateManager) String() string {
+	psm.lock.RLock()
+	defer psm.lock.RUnlock()
+
+	// 使用 strings.Builder 来高效构建字符串
+	var builder strings.Builder
+	builder.WriteString("PSetState: {")
+	builder.WriteString(fmt.Sprintf("LinkedActive: %v, ", psm.LinkActive))
+	builder.WriteString(fmt.Sprintf("LinkedNotActive: %v, ", psm.LinkNotActive))
+	builder.WriteString(fmt.Sprintf("Pending: %v", psm.Pending))
+	builder.WriteString("}")
+
+	return builder.String()
 }

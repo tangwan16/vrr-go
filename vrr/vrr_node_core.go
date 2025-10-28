@@ -3,8 +3,78 @@ package vrr
 import (
 	"fmt"
 	"log"
+	"time"
 	// "github.com/tangwan16/vrr-go/Network"
 )
+
+// Start 启动节点的消息处理循环，与广播周期性HELLO消息
+func (n *Node) Start() {
+	// 启动一个 goroutine 来处理传入的消息，sendSetupReq,Setup
+	go func() {
+		for {
+			select {
+			case msg := <-n.InboxChan:
+				n.rcvMessage(msg)
+			case <-n.StopChan:
+				log.Printf("Node %d: Stopping message processing", n.ID)
+				return
+			}
+		}
+	}()
+
+	// 启动一个goroutine单独处理周期性消息如Hello
+	go func() {
+		// 定义 HELLO 发送周期
+		helloTicker := time.NewTicker(300 * time.Millisecond) // 每3秒向HelloTicker对象内部通道C发送时间信号tick
+		defer helloTicker.Stop()
+
+		for {
+			select {
+			case <-helloTicker.C:
+				n.SendHello()
+			case <-n.StopChan:
+				log.Printf("Node %d: Stopping periodic HELLO sender", n.ID)
+				return
+			}
+		}
+	}()
+
+	log.Printf("Node %d: Started message processing", n.ID)
+}
+
+// Stop 停止节点
+func (n *Node) Stop() {
+	close(n.StopChan)
+	log.Printf("Node %d: Stop signal sent", n.ID)
+}
+
+// NewNode 创建节点
+func NewNode(id uint32, Network Networker) *Node {
+	n := &Node{
+		ID:        id,
+		InboxChan: make(chan Message, 256),
+		StopChan:  make(chan struct{}),
+		Network:   Network,
+		Active:    false,
+	}
+
+	// 为这个新节点创建一套独立的管理器
+	n.PsetManager = NewPSetManager(n)
+	n.VsetManager = NewVSetManager(n)
+	n.RoutingTable = NewRoutingTableManager(n)
+	n.PsetStateManager = NewPsetStateManager(n)
+	fmt.Printf("psetManager、VsetManager、psetStateManager、routingTable created for node %d done\n", n.ID)
+
+	return n
+}
+
+// --------------------public api-----------------------------
+// SetActive 设置节点活跃状态
+func (n *Node) SetActive(active bool) {
+	n.lock.Lock()
+	defer n.lock.Unlock()
+	n.Active = active
+}
 
 // DetectFailures 检测失败的邻居节点
 // to do:为什么上来直接增加失败计数？
@@ -53,47 +123,4 @@ func (n *Node) ActiveTimeoutTick() {
 		n.Active = true
 		log.Printf("Node %d: Activated after Timeout (%d ticks)", n.ID, n.Timeout)
 	}
-}
-
-// Start 启动节点的消息处理循环
-func (n *Node) Start() {
-	go func() {
-		for {
-			select {
-			case msg := <-n.InboxChan:
-				n.rcvMessage(msg)
-			case <-n.StopChan:
-				log.Printf("Node %d: Stopping message processing", n.ID)
-				return
-			}
-		}
-	}()
-
-	log.Printf("Node %d: Started message processing", n.ID)
-}
-
-// Stop 停止节点
-func (n *Node) Stop() {
-	close(n.StopChan)
-	log.Printf("Node %d: Stop signal sent", n.ID)
-}
-
-// NewNode 创建节点
-func NewNode(id uint32, Network Networker) *Node {
-	n := &Node{
-		ID:        id,
-		InboxChan: make(chan Message, 256),
-		StopChan:  make(chan struct{}),
-		Network:   Network,
-		Active:    true,
-	}
-
-	// 为这个新节点创建一套独立的管理器
-	n.PsetManager = NewPSetManager(n)
-	n.VsetManager = NewVSetManager(n)
-	n.RoutingTable = NewRoutingTableManager(n)
-	n.PsetStateManager = NewPsetStateManager(n)
-	fmt.Printf("psetManager、VsetManager、psetStateManager、routingTable created for node %d done\n", n.ID)
-
-	return n
 }
