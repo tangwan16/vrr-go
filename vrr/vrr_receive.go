@@ -90,20 +90,20 @@ func (n *Node) receiveData(msg Message, payload *DataPayload) {
 	}
 }
 
+// ------------------Vrr 论文实现方法------------------
 // receiveHello 处理Hello消息
 func (n *Node) receiveHello(msg Message, payload *HelloPayload) {
 	if len(payload.HelloInfoLinkActive) > VRR_PSET_SIZE || len(payload.HelloInfoLinkNotActive) > VRR_PSET_SIZE || len(payload.HelloInfoPending) > VRR_PSET_SIZE {
 		log.Printf("Node %d: Invalid HelloInfo Size.Dropping packet.", n.ID)
 		return
 	}
-
+	// 解析hello消息的路由消息内容
+	src := msg.Src
 	// 解析HELLO 元数据消息内容
 	active := payload.SenderActive
 	linkActive := payload.HelloInfoLinkActive
 	linkNotActive := payload.HelloInfoLinkNotActive
 	pending := payload.HelloInfoPending
-	// 解析hello消息的路由消息内容
-	src := msg.Src
 
 	trans := TRANS_MISSING // 默认是 MISSING
 	me := n
@@ -140,7 +140,6 @@ func (n *Node) receiveHello(msg Message, payload *HelloPayload) {
 	n.PsetStateManager.ScheduleUpdate(update)
 }
 
-// ------------------Vrr 论文实现方法------------------
 /* Receive (<setup_req,src,dst,proxy,vset'>, sender)
    nh := NextHopExclude(rt, dst, src)
    if (nh != null)
@@ -156,27 +155,34 @@ func (n *Node) receiveHello(msg Message, payload *HelloPayload) {
 // to do：缺乏 vset' 的处理
 func (n *Node) receiveSetupReq(msg Message, payload *SetupReqPayload) {
 
+	src := msg.Src
+	dest := msg.Dst
+	me := n.ID
+
 	// 确定下一跳，排除消息发送者
-	nextHop := n.RoutingTable.GetNextExclude(msg.Dst, msg.Src)
+	nextHop := n.RoutingTable.GetNextExclude(dest, src)
 	// 本节点是src到dst的中间节点
 	if nextHop != 0 {
-		log.Printf("Node %d: Forwarding SETUP_REQ to next hop %d", n.ID, nextHop)
-		// 1. 更新消息信封的路由信息
-		msg.Sender = n.ID
+		log.Printf("Node %d: Forwarding SETUP_REQ to next hop %d", me, nextHop)
+		// 转发SetupReq消息
+		msg.Sender = me
 		msg.NextHop = nextHop
-		// 2. 直接将修改后的消息发送出去
 		n.Network.Send(msg)
-		// n.SendSetupReq(msg.Src, msg.Dst, n.ID, nextHop, payload.Proxy, payload.Vset_)
 		return
 	} else {
-		// 本节点就是dst
-		myVset := n.VsetManager.GetAll()
-		if n.AddMsgSrcToLocalVset(msg.Src, payload.Vset_) {
+		// 本节点就是dst或最接近dst的节点
+		// 解析消息的元数据信息
+		proxy := payload.Proxy
+		vset_ := payload.Vset_
+
+		vset := n.VsetManager.GetAll()
+		added := n.Add(vset, src, vset_)
+		if added {
 			// 从自己开始setup
-			n.SendSetup(n.ID, msg.Src, n.ID, n.ID, n.newPathID(), payload.Proxy, myVset)
+			n.SendSetup(me, msg.Src, me, me, n.newPathID(), proxy, vset)
 		} else {
 			// 添加失败，发送Setup失败消息
-			n.SendSetupFail(n.ID, msg.Src, n.ID, n.ID, payload.Proxy, myVset)
+			n.SendSetupFail(me, msg.Src, me, me, proxy, vset)
 		}
 	}
 }
@@ -229,7 +235,8 @@ func (n *Node) receiveSetup(msg Message, payload *SetupPayload) {
 
 	// 本节点就是dst
 	if msg.Dst == n.ID {
-		addedToVset := n.AddMsgSrcToLocalVset(msg.Src, payload.Vset_)
+		vset := n.VsetManager.GetAll()
+		addedToVset := n.Add(vset, msg.Src, payload.Vset_)
 		if !addedToVset {
 			log.Printf("Node %d: Couldn't add %d to vset, tearing down path", n.ID, msg.Src)
 			//  路径本身是好的，但我（目标节点）由于某种策略无法将源节点加入我的vset
@@ -293,13 +300,14 @@ func (n *Node) receiveTeardown(msg Message, payload *TeardownPayload) {
 
 		// 如果vset'不为空
 		if len(payload.Vset_) > 0 {
+			vset := n.VsetManager.GetAll()
 			// 合并vset'到本地vset
-			n.AddMsgSrcToLocalVset(0, payload.Vset_)
+			n.Add(vset, 0, payload.Vset_)
 		} else {
 			//
 			// vset'为空，发生了链路错误，通过其他代码重新建立连接
-			proxy, _ := n.PsetManager.GetProxy()
-			n.SendSetupReq(n.ID, e, proxy)
+			// proxy, _ := n.PsetManager.GetProxy()
+			// n.SendSetupReq(n.ID, e, proxy)
 		}
 	}
 }
@@ -333,6 +341,7 @@ func (n *Node) receiveSetupFail(msg Message, payload *SetupFailPayload) {
 	} else if msg.Dst == n.ID {
 		// 自己是目的地，将src添加到vset并处理
 		srcVsetWithSrc := append(payload.Vset_, msg.Src)
-		n.AddMsgSrcToLocalVset(0, srcVsetWithSrc)
+		vset := n.VsetManager.GetAll()
+		n.Add(vset, 0, srcVsetWithSrc)
 	}
 }

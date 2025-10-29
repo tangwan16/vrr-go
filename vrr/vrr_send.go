@@ -3,18 +3,16 @@ package vrr
 import "log"
 
 // SendSetupReq 构建并发送一个 setup request 数据包
-// to do:修改sendsetupreq的参数，只保留src，dest，proxy
-func (n *Node) SendSetupReq(src, dest uint32, proxy uint32) bool {
+func (n *Node) SendSetupReq(src, dest, sender, nextHop uint32, proxy uint32, vset_ []uint32) bool {
 	log.Printf("src %d: SendSetupReq to dest=%d via proxy=%d", src, dest, proxy)
 
-	vset_ := n.VsetManager.GetAll()
 	// 2. 创建消息信封 (Message)，并装入 Payload
 	msg := Message{
 		Type:    VRR_SETUP_REQ,
 		Src:     src,
 		Dst:     dest,
-		Sender:  src,
-		NextHop: proxy,
+		Sender:  sender,
+		NextHop: nextHop,
 
 		Payload: &SetupReqPayload{
 			Proxy: proxy,

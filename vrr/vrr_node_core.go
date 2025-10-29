@@ -59,8 +59,8 @@ func NewNode(id uint32, Network Networker) *Node {
 	}
 
 	// 为这个新节点创建一套独立的管理器
-	n.PsetManager = NewPSetManager(n)
-	n.VsetManager = NewVSetManager(n)
+	n.PsetManager = NewPsetManager(n)
+	n.VsetManager = NewVsetManager(n)
 	n.RoutingTable = NewRoutingTableManager(n)
 	n.PsetStateManager = NewPsetStateManager(n)
 	fmt.Printf("psetManager、VsetManager、psetStateManager、routingTable created for node %d done\n", n.ID)

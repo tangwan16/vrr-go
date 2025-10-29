@@ -96,8 +96,8 @@ type Node struct {
 	// 每个节点都拥有自己独立的状态管理器实例
 	// --- 核心组件 ---
 	InboxChan        chan Message         // 消息接收通道，模拟网络接口的接收队列
-	PsetManager      *PSetManager         // 物理邻居集管理器
-	VsetManager      *VSetManager         // 虚拟邻居集管理器
+	PsetManager      *PsetManager         // 物理邻居集管理器
+	VsetManager      *VsetManager         // 虚拟邻居集管理器
 	RoutingTable     *RoutingTableManager // 路由表管理器
 	PsetStateManager *PsetStateManager    // 物理邻居集管理器
 }

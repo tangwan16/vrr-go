@@ -19,22 +19,22 @@ type PsetNode struct {
 }
 
 // PSetManager 封装了单个节点的物理邻居集状态和操作逻辑。
-type PSetManager struct {
+type PsetManager struct {
 	ownerNode *Node        // 指向拥有此管理器的节点
 	lock      sync.RWMutex // 使用读写锁以优化性能
 	psetList  list.List    // 每个管理器实例都有自己的psetList
 }
 
-// NewPSetManager 是 PSetManager 的构造函数。
-func NewPSetManager(owner *Node) *PSetManager {
-	return &PSetManager{
+// NewPPsetManager 是 PPsetManager 的构造函数。
+func NewPsetManager(owner *Node) *PsetManager {
+	return &PsetManager{
 		ownerNode: owner,
 		// psetList 字段已经是 list.List 类型，它被零值初始化为一个可用的空列表。
 	}
 }
 
 // Add  向物理邻居集中添加一个节点。
-func (pms *PSetManager) Add(nodeID uint32, status uint32, Active bool) bool {
+func (pms *PsetManager) Add(nodeID uint32, status uint32, Active bool) bool {
 	pms.lock.Lock()
 	defer pms.lock.Unlock()
 	log.Printf("Node %d: Started to add neighbor Node %d", pms.ownerNode.ID, nodeID)
@@ -61,7 +61,7 @@ func (pms *PSetManager) Add(nodeID uint32, status uint32, Active bool) bool {
 }
 
 // Update 更新物理邻居集中一个节点的状态。
-func (pms *PSetManager) Update(nodeID uint32, status uint32, Active bool) bool {
+func (pms *PsetManager) Update(nodeID uint32, status uint32, Active bool) bool {
 	pms.lock.Lock()
 	defer pms.lock.Unlock()
 
@@ -78,7 +78,7 @@ func (pms *PSetManager) Update(nodeID uint32, status uint32, Active bool) bool {
 }
 
 // Find 在物理邻居集中查找一个节点。
-func (pms *PSetManager) Find(nodeID uint32) *PsetNode {
+func (pms *PsetManager) Find(nodeID uint32) *PsetNode {
 	pms.lock.RLock()
 	defer pms.lock.RUnlock()
 
@@ -91,7 +91,7 @@ func (pms *PSetManager) Find(nodeID uint32) *PsetNode {
 }
 
 // Contains 检查物理邻居集中是否存在指定的节点。
-func (pms *PSetManager) Contains(nodeID uint32) bool {
+func (pms *PsetManager) Contains(nodeID uint32) bool {
 	pms.lock.RLock() // 使用读锁
 	defer pms.lock.RUnlock()
 
@@ -106,7 +106,7 @@ func (pms *PSetManager) Contains(nodeID uint32) bool {
 }
 
 // GetActive 获取物理邻居集中一个节点的活跃状态。
-func (pms *PSetManager) GetActive(nodeID uint32) (bool, bool) {
+func (pms *PsetManager) GetActive(nodeID uint32) (bool, bool) {
 	pms.lock.RLock() // 使用读锁，因为这是只读操作
 	defer pms.lock.RUnlock()
 
@@ -123,7 +123,7 @@ func (pms *PSetManager) GetActive(nodeID uint32) (bool, bool) {
 }
 
 // GetStatus  获取物理邻居集中一个节点的状态。
-func (pms *PSetManager) GetStatus(nodeID uint32) (uint32, bool) {
+func (pms *PsetManager) GetStatus(nodeID uint32) (uint32, bool) {
 	pms.lock.RLock() // 使用读锁，因为这是只读操作
 	defer pms.lock.RUnlock()
 
@@ -141,7 +141,7 @@ func (pms *PSetManager) GetStatus(nodeID uint32) (uint32, bool) {
 // IncFailCount 原子地增加指定节点的失败计数。
 // 注意：这个方法接收一个 *PsetNode 指针，因为它假设你已经通过 Find 找到了节点。
 // 这样做可以避免在已经持有节点引用的情况下再次加锁和遍历。
-func (pms *PSetManager) IncFailCount(nodeID uint32) (int32, bool) {
+func (pms *PsetManager) IncFailCount(nodeID uint32) (int32, bool) {
 	// 这里我们复用 Find 方法
 	pNode := pms.Find(nodeID)
 	if pNode == nil {
@@ -153,7 +153,7 @@ func (pms *PSetManager) IncFailCount(nodeID uint32) (int32, bool) {
 }
 
 // ResetFailCount 原子地重置指定节点的失败计数。
-func (pms *PSetManager) ResetFailCount(nodeID uint32) bool {
+func (pms *PsetManager) ResetFailCount(nodeID uint32) bool {
 	// 这里我们复用 Find 方法
 	pNode := pms.Find(nodeID)
 	if pNode != nil {
@@ -166,7 +166,7 @@ func (pms *PSetManager) ResetFailCount(nodeID uint32) bool {
 
 // ---------------------public api---------------------------------'
 // Remove 从物理邻居集中移除一个节点。
-func (pms *PSetManager) Remove(nodeID uint32) bool {
+func (pms *PsetManager) Remove(nodeID uint32) bool {
 	pms.lock.Lock()
 	defer pms.lock.Unlock()
 
@@ -182,7 +182,7 @@ func (pms *PSetManager) Remove(nodeID uint32) bool {
 
 // IsActiveLinkedPset 判断指定节点ID是否为当前节点的活跃且已链接的物理邻居
 // 返回值：true表示是活跃且已链接的pset，false表示不是
-func (pms *PSetManager) IsActiveLinkedPset(nodeID uint32) bool {
+func (pms *PsetManager) IsActiveLinkedPset(nodeID uint32) bool {
 	pms.lock.RLock() // 使用读锁，因为这是只读操作
 	defer pms.lock.RUnlock()
 
@@ -200,7 +200,7 @@ func (pms *PSetManager) IsActiveLinkedPset(nodeID uint32) bool {
 }
 
 // String 返回 PSetManager 状态的可读字符串表示形式
-func (pms *PSetManager) String() string {
+func (pms *PsetManager) String() string {
 	pms.lock.RLock() // 使用读锁
 	defer pms.lock.RUnlock()
 
@@ -231,7 +231,7 @@ PickRandomActive(pset)
 	returns a random physical neighbor that is Active
 */
 // GetProxy 从活跃的物理邻居中随机选择一个作为代理。
-func (pms *PSetManager) GetProxy() (uint32, bool) {
+func (pms *PsetManager) GetProxy() (uint32, bool) {
 	pms.lock.RLock() // 使用读锁
 	defer pms.lock.RUnlock()
 

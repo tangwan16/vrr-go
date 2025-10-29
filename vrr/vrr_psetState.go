@@ -22,6 +22,20 @@ const (
 	PSET_UNKNOWN = 3
 )
 
+var (
+	psetStates = []string{"linked", "pending", "failed", "unknown"}
+	psetTrans  = []string{"linked", "pending", "missing"}
+	// 状态转移表
+	// 维度: [当前状态][收到的邻居关系] -> 下一状态
+	helloTrans = [4][3]uint32{
+		//              TRANS_LINKED, TRANS_PENDING, TRANS_MISSING
+		/* PSET_LINKED */ {PSET_LINKED, PSET_LINKED, PSET_FAILED},
+		/* PSET_PENDING */ {PSET_LINKED, PSET_LINKED, PSET_PENDING},
+		/* PSET_FAILED */ {PSET_FAILED, PSET_PENDING, PSET_PENDING},
+		/* PSET_UNKNOWN */ {PSET_FAILED, PSET_LINKED, PSET_PENDING},
+	}
+)
+
 type PsetStateManager struct {
 	ownerNode           *Node        // 指向拥有此管理器的节点
 	lock                sync.RWMutex // 使用读写锁以优化性能
@@ -29,20 +43,6 @@ type PsetStateManager struct {
 	LinkNotActive       []uint32     // 非活跃的已链接节点
 	Pending             []uint32     // 待定状态节点
 	psetStateUpdateChan chan PsetStateUpdate
-}
-
-var psetStates = []string{"linked", "pending", "failed", "unknown"}
-var psetTrans = []string{"linked", "pending", "missing"}
-
-// 状态转移表
-// 维度: [当前状态][收到的邻居关系] -> 下一状态
-var helloTrans = [4][3]uint32{
-	//              TRANS_LINKED, TRANS_PENDING, TRANS_MISSING
-	/* PSET_LINKED */ {PSET_LINKED, PSET_LINKED, PSET_FAILED},
-	/* PSET_PENDING */ {PSET_LINKED, PSET_LINKED, PSET_PENDING},
-	/* PSET_FAILED */ {PSET_FAILED, PSET_PENDING, PSET_PENDING},
-	// /* PSET_UNKNOWN */ {PSET_LINKED, PSET_LINKED, PSET_PENDING},
-	/* PSET_UNKNOWN */ {PSET_FAILED, PSET_LINKED, PSET_PENDING},
 }
 
 // --- 邻居更新处理 ---
@@ -81,36 +81,38 @@ func (psm *PsetStateManager) ScheduleUpdate(update PsetStateUpdate) {
 
 // updateHandler 是在后台运行的工作者，对应C代码的 pset_update_handler
 func (psm *PsetStateManager) updateHandler() {
-	me := psm.ownerNode
+	n := psm.ownerNode
+	me := n.ID
 	// log.Printf("Node %d: started to receive Hello Msg for updating Pset state", me.ID)
 
 	// TODO：是否要加锁以安全地访问和修改PSetManager的状态
 	// 使用 for-range 循环不断地从channel中接收任务
 	for tmp := range psm.psetStateUpdateChan {
-		curState, _ := me.PsetManager.GetStatus(tmp.node)
+		curState, _ := n.PsetManager.GetStatus(tmp.node)
 		nextState := helloTrans[curState][tmp.trans]
-		curActive, _ := me.PsetManager.GetActive(tmp.node)
+		curActive, _ := n.PsetManager.GetActive(tmp.node)
 
 		log.Printf("Node %d: Pset update for Node %d: %s[%s] ==> %s",
-			me.ID, tmp.node, psetStates[curState], psetTrans[tmp.trans], psetStates[nextState])
+			me, tmp.node, psetStates[curState], psetTrans[tmp.trans], psetStates[nextState])
 
 		if curState == PSET_UNKNOWN {
 			// 发送Hello消息节点为新节点，添加到PSet中
-			me.PsetManager.Add(tmp.node, nextState, tmp.active)
+			n.PsetManager.Add(tmp.node, nextState, tmp.active)
 			psm.Update()
 		} else if curState != nextState || curActive != tmp.active {
 			// 状态或活跃性有变化，更新PSet
-			me.PsetManager.Update(tmp.node, nextState, tmp.active)
+			n.PsetManager.Update(tmp.node, nextState, tmp.active)
 			psm.Update()
 		}
 
-		// 非活跃节点(未在虚拟邻居集中),找到一个已加入网络活跃的节点，发送setup_req请求
-		if !me.Active && tmp.active && nextState == PSET_LINKED {
-			log.Printf("Node %d: New Active/linked neighbor %d found. Sending setup_req to self via proxy %d.", me.ID, tmp.node, tmp.node)
-			me.SendSetupReq(me.ID, me.ID, tmp.node)
+		// 如果当前节点自己是非活跃节点(未在虚拟邻居集中),找到一个已加入网络活跃的节点，发送setup_req请求
+		if !n.Active && tmp.active && nextState == PSET_LINKED {
+			log.Printf("Node %d: New Active/linked neighbor %d found. Sending setup_req to self via proxy %d.", me, tmp.node, tmp.node)
+			vset := n.VsetManager.GetAll()
+			n.SendSetupReq(me, me, me, tmp.node, tmp.node, vset)
 		}
 	}
-	log.Printf("Node %d: ended to receive Hello Msg for updating Pset state", me.ID)
+	log.Printf("Node %d: ended to receive Hello Msg for updating Pset state", me)
 }
 
 // Update ：根据pset 更新 PsetState
