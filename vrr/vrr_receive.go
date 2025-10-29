@@ -154,35 +154,35 @@ func (n *Node) receiveHello(msg Message, payload *HelloPayload) {
 // handleSetupReq 处理Setup请求消息
 // to do：缺乏 vset' 的处理
 func (n *Node) receiveSetupReq(msg Message, payload *SetupReqPayload) {
-
+	// 解析消息的路由消息
 	src := msg.Src
-	dest := msg.Dst
+	dst := msg.Dst
+
+	// 解析消息的元数据信息
+	proxy := payload.Proxy
+	vset_ := payload.Vset_
+
 	me := n.ID
 
 	// 确定下一跳，排除消息发送者
-	nextHop := n.RoutingTable.GetNextExclude(dest, src)
+	nextHop := n.RoutingTable.GetNextExclude(dst, src)
 	// 本节点是src到dst的中间节点
 	if nextHop != 0 {
 		log.Printf("Node %d: Forwarding SETUP_REQ to next hop %d", me, nextHop)
-		// 转发SetupReq消息
-		msg.Sender = me
-		msg.NextHop = nextHop
-		n.Network.Send(msg)
+		// 转发SetupReq消息给nextHop
+		n.SendSetupReq(src, dst, me, nextHop, proxy, vset_)
 		return
 	} else {
 		// 本节点就是dst或最接近dst的节点
-		// 解析消息的元数据信息
-		proxy := payload.Proxy
-		vset_ := payload.Vset_
 
 		vset := n.VsetManager.GetAll()
 		added := n.Add(vset, src, vset_)
 		if added {
 			// 从自己开始setup
-			n.SendSetup(me, msg.Src, me, me, n.newPathID(), proxy, vset)
+			n.SendSetup(me, src, me, me, n.NewPid(), proxy, vset)
 		} else {
 			// 添加失败，发送Setup失败消息
-			n.SendSetupFail(me, msg.Src, me, me, proxy, vset)
+			n.SendSetupFail(me, src, me, me, proxy, vset)
 		}
 	}
 }
@@ -204,52 +204,70 @@ Receive (<setup,src,dst,proxy,vset'>, sender)
 */
 // receiveSetup 处理Setup消息
 func (n *Node) receiveSetup(msg Message, payload *SetupPayload) {
+	me := n.ID
+	// 解析消息的路由信息
+	src := msg.Src
+	dst := msg.Dst
+	sender := msg.Sender
+
+	// 解析消息的元数据信息
+	pid := payload.Pid
+	proxy := payload.Proxy
+	vset_ := payload.Vset_
+
+	if sender == me {
+		log.Printf("Node %d: Received setup from myself", me)
+	} else {
+		inPset := n.PsetManager.GetStatus(sender)
+		if inPset == PSET_UNKNOWN {
+			n.RoutingTable.TearDownPath(pid, src, sender)
+			log.Printf("Node %d: Sender %d is not in pset!", me, sender)
+		}
+
+	}
+
 	// 确定下一跳
 	var nextHop uint32
-
-	if n.PsetManager.IsActiveLinkedPset(msg.Dst) {
-		nextHop = msg.Dst
-	} else {
-		nextHop = n.RoutingTable.GetNext(payload.Proxy)
-	}
-	addedToRoute := n.RoutingTable.AddRoute(msg.Src, msg.Dst, msg.Sender, nextHop, payload.Pid)
-
-	// 添加路由条目
-	if !addedToRoute || !n.PsetManager.IsActiveLinkedPset(msg.Sender) {
-		log.Printf("Node %d: Couldn't add route, tearing down path to %d", n.ID, msg.Src)
-		// 故障！要么路由添加失败，要么发送者不再是我的邻居
-		n.RoutingTable.TearDownPath(payload.Pid, msg.Src, msg.Sender)
-		return
-	}
-
-	// 若还有下一跳，则继续转发 setup
-	if nextHop != 0 {
-		// 1. 更新消息信封的路由信息
-		msg.Sender = n.ID
-		msg.NextHop = nextHop
-		// 2. 直接将修改后的消息发送出去
-		n.Network.Send(msg)
-		// n.SendSetup(msg.Src, msg.Dst, n.ID, nextHop, payload.Pid, payload.Proxy, payload.Vset_)
-		return
-	}
-
-	// 本节点就是dst
-	if msg.Dst == n.ID {
-		vset := n.VsetManager.GetAll()
-		addedToVset := n.Add(vset, msg.Src, payload.Vset_)
-		if !addedToVset {
-			log.Printf("Node %d: Couldn't add %d to vset, tearing down path", n.ID, msg.Src)
-			//  路径本身是好的，但我（目标节点）由于某种策略无法将源节点加入我的vset
-			// 这是一个“逻辑拒绝”，而不是“链路错误”
-			n.RoutingTable.TearDownPath(payload.Pid, msg.Src, 0)
+	if n.PsetManager.GetStatus(dst) == PSET_UNKNOWN {
+		if dst == me {
+			nextHop = 0
+		} else {
+			nextHop = n.RoutingTable.GetNext(proxy)
 		}
+	} else {
+		// dst 在 pset 中
+		nextHop = dst
+	}
+
+	added := n.RoutingTable.Add(src, dst, sender, nextHop, pid)
+	if !added {
+		// to do:明确是写sender还是null
+		n.RoutingTable.TearDownPath(pid, src, 0)
+		log.Printf("Node %d: Couldn't add route, tearing down path to %d", me, src)
+	}
+
+	// 转发Setup消息给nexthop
+	if nextHop != 0 {
+		n.SendSetup(src, dst, me, nextHop, pid, proxy, vset_)
 		return
+	}
+	// 本节点就是dst
+	vset := n.VsetManager.GetAll()
+	add := n.Add(vset, src, vset_)
+
+	if add {
+		log.Printf("Node %d: Received multi-hop setup message from %d", me, src)
+		n.Active = true
+		return
+	} else {
+		log.Printf("Node %d: Couldn't add %d to vset, tearing down path", me, src)
+		//  路径本身是好的，但我（目标节点）由于某种策略无法将源节点加入我的vset
+		// 这是一个“逻辑拒绝”，而不是“链路错误”
 	}
 
 	// 异常情况：无下一跳且目标不是我
-	log.Printf("Node %d: Unexpected setup condition, tearing down path to %d", n.ID, msg.Src)
-	n.RoutingTable.TearDownPath(payload.Pid, msg.Src, 0)
-
+	n.RoutingTable.TearDownPath(pid, src, 0)
+	return
 }
 
 /*

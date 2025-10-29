@@ -1,7 +1,10 @@
 package vrr
 
 import (
+	"fmt"
 	"log"
+	"sort"
+	"strings"
 	"sync"
 )
 
@@ -150,7 +153,7 @@ Add(rt, <ea , eb , na , nb , pid> )
 */
 // AddRoute  向路由表添加一个路由条目。
 // to do :the entry with the same pid, ea should not be added
-func (rt *RoutingTableManager) AddRoute(ea, eb, na, nb, pathID uint32) bool {
+func (rt *RoutingTableManager) Add(ea, eb, na, nb, pathID uint32) bool {
 	rt.lock.Lock()
 	defer rt.lock.Unlock()
 
@@ -159,7 +162,13 @@ func (rt *RoutingTableManager) AddRoute(ea, eb, na, nb, pathID uint32) bool {
 		log.Printf("Node %d: Route with pathID %d already exists", rt.ownerNode.ID, pathID)
 		return false
 	}
-
+	/* 	me := rt.ownerNode.ID
+	   	if na == me {
+	   		na = 0
+	   	}
+	   	if nb == me {
+	   		nb = 0
+	   	} */
 	rt.routes[pathID] = &RoutingTableEntry{
 		Ea:     ea,
 		Eb:     eb,
@@ -289,4 +298,33 @@ func (rt *RoutingTableManager) TearDownPathTo(endpoint uint32) {
 		// 使用 path.Ea 作为TearDownPath的端点参数，因为pid+ea是唯一标识
 		rt.TearDownPath(path.PathId, path.Ea, 0)
 	}
+}
+
+// ---------------------public api--------------------------------------------
+// String 返回 RoutingTableManager 状态的可读字符串表示形式
+func (rt *RoutingTableManager) String() string {
+	rt.lock.RLock()
+	defer rt.lock.RUnlock()
+
+	if len(rt.routes) == 0 {
+		return "RoutingTable: {empty}"
+	}
+
+	// 为了保证输出顺序一致，我们对 PathId 进行排序
+	keys := make([]uint32, 0, len(rt.routes))
+	for k := range rt.routes {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+
+	var builder strings.Builder
+	builder.WriteString("RoutingTable:\n")
+	for _, pathID := range keys {
+		route := rt.routes[pathID]
+		builder.WriteString(fmt.Sprintf("\t- PathID: %d, Ea: %d, Eb: %d, Na: %d, Nb: %d\n",
+			route.PathId, route.Ea, route.Eb, route.Na, route.Nb))
+	}
+
+	// 移除最后一个换行符
+	return strings.TrimSuffix(builder.String(), "\n")
 }

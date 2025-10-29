@@ -81,9 +81,8 @@ type DataPayload struct {
 
 // Node 模拟一个 VRR 节点
 type Node struct {
-	ID uint32 // 节点的唯一标识符
-
-	StopChan chan struct{} // 用于通知goroutine停止的信号通道
+	ID        uint32       // 节点的唯一标识符
+	InboxChan chan Message // 消息接收通道，模拟网络接口的接收队列
 
 	Network Networker // 对模拟网络的引用，用于发送消息
 
@@ -93,13 +92,15 @@ type Node struct {
 	Timeout int // 活跃状态超时计数器，对应 vrr_node.Timeout
 
 	// --- 状态管理器 ---
-	// 每个节点都拥有自己独立的状态管理器实例
-	// --- 核心组件 ---
-	InboxChan        chan Message         // 消息接收通道，模拟网络接口的接收队列
 	PsetManager      *PsetManager         // 物理邻居集管理器
 	VsetManager      *VsetManager         // 虚拟邻居集管理器
 	RoutingTable     *RoutingTableManager // 路由表管理器
 	PsetStateManager *PsetStateManager    // 物理邻居集管理器
+
+	// 并发控制
+	StopChan chan struct{} // 用于通知goroutine停止的信号通道
+	stopOnce sync.Once     // 确保 StopChan 只关闭一次
+	wg       sync.WaitGroup
 }
 
 // GetMessageTypeString 将消息类型常量转换为可读的字符串

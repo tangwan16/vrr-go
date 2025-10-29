@@ -1,7 +1,6 @@
 package vrr
 
 import (
-	"fmt"
 	"log"
 	"time"
 	// "github.com/tangwan16/vrr-go/Network"
@@ -9,14 +8,16 @@ import (
 
 // Start 启动节点的消息处理循环，与广播周期性HELLO消息
 func (n *Node) Start() {
+	n.wg.Add(2) //启动两个goroutine
+
 	// 启动一个 goroutine 来处理传入的消息，sendSetupReq,Setup
 	go func() {
+		defer n.wg.Done() // 确保此 goroutine 退出时，计数器减一
 		for {
 			select {
 			case msg := <-n.InboxChan:
 				n.rcvMessage(msg)
 			case <-n.StopChan:
-				log.Printf("Node %d: Stopping message processing", n.ID)
 				return
 			}
 		}
@@ -24,8 +25,9 @@ func (n *Node) Start() {
 
 	// 启动一个goroutine单独处理周期性消息如Hello
 	go func() {
+		defer n.wg.Done() // 确保此 goroutine 退出时，计数器减一
 		// 定义 HELLO 发送周期
-		helloTicker := time.NewTicker(300 * time.Millisecond) // 每3秒向HelloTicker对象内部通道C发送时间信号tick
+		helloTicker := time.NewTicker(300 * time.Millisecond) // 每0.3秒向HelloTicker对象内部通道C发送时间信号tick
 		defer helloTicker.Stop()
 
 		for {
@@ -33,19 +35,24 @@ func (n *Node) Start() {
 			case <-helloTicker.C:
 				n.SendHello()
 			case <-n.StopChan:
-				log.Printf("Node %d: Stopping periodic HELLO sender", n.ID)
 				return
 			}
 		}
 	}()
 
-	log.Printf("Node %d: Started message processing", n.ID)
+	log.Printf("Node %d: Started message processing and periodic HELLO sender", n.ID)
 }
 
 // Stop 停止节点
 func (n *Node) Stop() {
-	close(n.StopChan)
-	log.Printf("Node %d: Stop signal sent", n.ID)
+	n.stopOnce.Do(func() {
+		// 1. 发送停止信号
+		close(n.StopChan)
+		// 2. 等待所有 goroutine 真正退出
+		n.wg.Wait()
+		// 3. 在所有任务都结束后，打印统一的日志
+		log.Printf("Node %d: Closed message processing and periodic HELLO sender", n.ID)
+	})
 }
 
 // NewNode 创建节点
@@ -63,7 +70,7 @@ func NewNode(id uint32, Network Networker) *Node {
 	n.VsetManager = NewVsetManager(n)
 	n.RoutingTable = NewRoutingTableManager(n)
 	n.PsetStateManager = NewPsetStateManager(n)
-	fmt.Printf("psetManager、VsetManager、psetStateManager、routingTable created for node %d done\n", n.ID)
+	// fmt.Printf("psetManager、VsetManager、psetStateManager、routingTable created for node %d done\n", n.ID)
 
 	return n
 }

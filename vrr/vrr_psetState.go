@@ -88,7 +88,7 @@ func (psm *PsetStateManager) updateHandler() {
 	// TODO：是否要加锁以安全地访问和修改PSetManager的状态
 	// 使用 for-range 循环不断地从channel中接收任务
 	for tmp := range psm.psetStateUpdateChan {
-		curState, _ := n.PsetManager.GetStatus(tmp.node)
+		curState := n.PsetManager.GetStatus(tmp.node)
 		nextState := helloTrans[curState][tmp.trans]
 		curActive, _ := n.PsetManager.GetActive(tmp.node)
 

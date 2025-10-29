@@ -25,3 +25,13 @@ func printAllPsetState(nodes []*vrr.Node) {
 	}
 	log.Println("---------------------------")
 }
+
+// printAllRoutes 是一个辅助函数，用于打印所有节点的路由表状态
+func printAllRoutes(nodes []*vrr.Node) {
+	log.Println("--- Current Routing Tables ---")
+	for _, n := range nodes {
+		// 调用我们刚刚在 RoutingTableManager 中添加的 String() 方法
+		log.Printf("Node %d -> %s", n.ID, n.RoutingTable.String())
+	}
+	log.Println("------------------------------")
+}

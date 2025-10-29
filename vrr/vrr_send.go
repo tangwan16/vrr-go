@@ -94,7 +94,7 @@ func (n *Node) SendTeardown(pathID, endpoint uint32, vset_ []uint32, nextHop uin
 
 // SendHello 构建并发送一个 hello 数据包（广播）
 func (n *Node) SendHello() bool {
-	log.Printf("Node %d: SendHelloPkt (broadcasting)", n.ID)
+	// log.Printf("Node %d: SendHelloPkt (broadcasting)", n.ID)
 
 	// 更新 psetState 快照
 	n.PsetStateManager.Update()
@@ -143,9 +143,9 @@ func (n *Node) SendData(dest uint32, data []byte) bool {
 	return true
 }
 
-// newPathID 作为 Node 的方法生成一个随机的 32 位路径 ID
+// NewPid 作为 Node 的方法生成一个随机的 32 位路径 ID
 // 确保生成的 ID 不与当前节点的 vset 中的任何节点 ID 冲突
-func (n *Node) newPathID() uint32 {
+func (n *Node) NewPid() uint32 {
 	rngMutex.Lock()
 	defer rngMutex.Unlock()
 

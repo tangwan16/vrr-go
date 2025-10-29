@@ -123,19 +123,19 @@ func (pms *PsetManager) GetActive(nodeID uint32) (bool, bool) {
 }
 
 // GetStatus  获取物理邻居集中一个节点的状态。
-func (pms *PsetManager) GetStatus(nodeID uint32) (uint32, bool) {
+func (pms *PsetManager) GetStatus(nodeID uint32) uint32 {
 	pms.lock.RLock() // 使用读锁，因为这是只读操作
 	defer pms.lock.RUnlock()
 
 	for e := pms.psetList.Front(); e != nil; e = e.Next() {
 		tmp := e.Value.(*PsetNode)
 		if tmp.NodeId == nodeID {
-			return tmp.Status, true // 返回状态和表示“找到”的布尔值
+			return tmp.Status // 返回状态和表示“找到”的布尔值
 		}
 	}
 	// 如果未找到，返回一个默认值和表示“未找到”的布尔值
 	// PSET_UNKNOWN 应该在您的常量定义中
-	return PSET_UNKNOWN, false
+	return PSET_UNKNOWN
 }
 
 // IncFailCount 原子地增加指定节点的失败计数。

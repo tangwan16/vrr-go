@@ -80,7 +80,7 @@ func NewNetwork(Latency time.Duration, PacketLoss float32) *Network {
 	}
 }
 
-// RegisterNode 注册节点到网络
+// RegisterNode 注册节点到子网
 func (network *Network) RegisterNode(node *vrr.Node, subnetIDs ...uint32) {
 	network.nodesMux.Lock()
 	network.Nodes[node.ID] = node
