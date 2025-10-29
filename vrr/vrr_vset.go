@@ -2,6 +2,7 @@ package vrr
 
 import (
 	"container/list"
+	"fmt"
 	"log"
 	"math"
 	"sort"
@@ -254,4 +255,26 @@ func (n *Node) Add(vset []uint32, src uint32, vset_ []uint32) bool {
 	// AddMsgSrcToLocalVset(0,vset_)
 	// 否则返回 false
 	return false
+}
+
+// String 返回 VsetManager 状态的可读字符串表示形式
+func (vm *VsetManager) String() string {
+	vm.lock.RLock()
+	defer vm.lock.RUnlock()
+
+	if vm.vsetList.Len() == 0 {
+		return "VSet: []"
+	}
+
+	// 提取所有 NodeId
+	ids := make([]uint32, 0, vm.vsetList.Len())
+	for e := vm.vsetList.Front(); e != nil; e = e.Next() {
+		ids = append(ids, e.Value.(*VsetNode).NodeId)
+	}
+
+	// 为了保证输出顺序一致，对 ID 进行排序
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+
+	// 将排序后的 ID 列表格式化成字符串
+	return fmt.Sprintf("VSet: %v", ids)
 }

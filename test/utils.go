@@ -35,3 +35,13 @@ func printAllRoutes(nodes []*vrr.Node) {
 	}
 	log.Println("------------------------------")
 }
+
+// printAllVsets 是一个辅助函数，用于打印所有节点的 VSet 状态
+func printAllVsets(nodes []*vrr.Node) {
+	log.Println("--- Current VSet ---")
+	for _, n := range nodes {
+		// 调用我们刚刚在 VsetManager 中添加的 String() 方法
+		log.Printf("Node %d -> %s", n.ID, n.VsetManager.String())
+	}
+	log.Println("--------------------")
+}

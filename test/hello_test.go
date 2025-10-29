@@ -60,7 +60,7 @@ func TestHelloHandshake(t *testing.T) {
 	printAllPsetState(nodes)
 
 	log.Println("--- Test HelloHandshake Finished ---")
-
+	printAllVsets(nodes)
 	printAllRoutes(nodes)
 
 	totalMsgs, droppedMsgs := network.GetMsgInfo()
@@ -70,35 +70,41 @@ func TestHelloHandshake(t *testing.T) {
 // 运行测试
 // 样例
 /* --- Final State after autonomous handshake ---
-2025/10/29 21:18:15 --- Current PSet States ---
-2025/10/29 21:18:15 Node 8086 -> PSetState: {LinkedActive: [], LinkedNotActive: [], Pending: []}
-2025/10/29 21:18:15 Node 8082 -> PSetState: {LinkedActive: [8083 8084 8085], LinkedNotActive: [], Pending: []}
-2025/10/29 21:18:15 Node 8083 -> PSetState: {LinkedActive: [8082 8084], LinkedNotActive: [], Pending: []}
-2025/10/29 21:18:15 Node 8084 -> PSetState: {LinkedActive: [8083 8082], LinkedNotActive: [], Pending: []}
-2025/10/29 21:18:15 Node 8085 -> PSetState: {LinkedActive: [8082], LinkedNotActive: [], Pending: []}
-2025/10/29 21:18:15 ---------------------------
-2025/10/29 21:18:15 --- Test HelloHandshake Finished ---
-2025/10/29 21:18:15 --- Current Routing Tables ---
-2025/10/29 21:18:15 Node 8086 -> RoutingTable: {empty}
-2025/10/29 21:18:15 Node 8082 -> RoutingTable:
-        - PathID: 117809208, Ea: 8085, Eb: 8082, Na: 8085, Nb: 0
-        - PathID: 990905204, Ea: 8082, Eb: 8083, Na: 0, Nb: 8083
-        - PathID: 2410416891, Ea: 8085, Eb: 8084, Na: 8085, Nb: 8084
-        - PathID: 2432423068, Ea: 8085, Eb: 8083, Na: 8085, Nb: 8083
-        - PathID: 3692099149, Ea: 8082, Eb: 8084, Na: 0, Nb: 8084
-2025/10/29 21:18:15 Node 8083 -> RoutingTable:
-        - PathID: 990905204, Ea: 8082, Eb: 8083, Na: 8082, Nb: 0
-        - PathID: 2432423068, Ea: 8085, Eb: 8083, Na: 8082, Nb: 0
-        - PathID: 3055758608, Ea: 8084, Eb: 8083, Na: 8084, Nb: 0
-        - PathID: 3513478772, Ea: 8083, Eb: 8084, Na: 0, Nb: 8084
-2025/10/29 21:18:15 Node 8084 -> RoutingTable:
-        - PathID: 2410416891, Ea: 8085, Eb: 8084, Na: 8082, Nb: 0
-        - PathID: 3055758608, Ea: 8084, Eb: 8083, Na: 0, Nb: 8083
-        - PathID: 3513478772, Ea: 8083, Eb: 8084, Na: 8083, Nb: 0
-        - PathID: 3692099149, Ea: 8082, Eb: 8084, Na: 8082, Nb: 0
-2025/10/29 21:18:15 Node 8085 -> RoutingTable:
-        - PathID: 117809208, Ea: 8085, Eb: 8082, Na: 0, Nb: 8082
-        - PathID: 2410416891, Ea: 8085, Eb: 8084, Na: 0, Nb: 8082
-        - PathID: 2432423068, Ea: 8085, Eb: 8083, Na: 0, Nb: 8082
-2025/10/29 21:18:15 ------------------------------
-2025/10/29 21:18:15 Simulation completed: Total messages: 99, Dropped: 0 */
+2025/10/29 21:24:35 --- Current PSet States ---
+2025/10/29 21:24:35 Node 8086 -> PSetState: {LinkedActive: [], LinkedNotActive: [], Pending: []}
+2025/10/29 21:24:35 Node 8082 -> PSetState: {LinkedActive: [8084 8085 8083], LinkedNotActive: [], Pending: []}
+2025/10/29 21:24:35 Node 8083 -> PSetState: {LinkedActive: [8082 8084], LinkedNotActive: [], Pending: []}
+2025/10/29 21:24:35 Node 8084 -> PSetState: {LinkedActive: [8083 8082], LinkedNotActive: [], Pending: []}
+2025/10/29 21:24:35 Node 8085 -> PSetState: {LinkedActive: [8082], LinkedNotActive: [], Pending: []}
+2025/10/29 21:24:35 ---------------------------
+2025/10/29 21:24:35 --- Test HelloHandshake Finished ---
+2025/10/29 21:24:35 --- Current VSet ---
+2025/10/29 21:24:35 Node 8086 -> VSet: []
+2025/10/29 21:24:35 Node 8082 -> VSet: [8083 8084 8085]
+2025/10/29 21:24:35 Node 8083 -> VSet: [8082 8084 8085]
+2025/10/29 21:24:35 Node 8084 -> VSet: [8082 8083 8085]
+2025/10/29 21:24:35 Node 8085 -> VSet: [8082 8083 8084]
+2025/10/29 21:24:35 --------------------
+2025/10/29 21:24:35 --- Current Routing Tables ---
+2025/10/29 21:24:35 Node 8086 -> RoutingTable: {empty}
+2025/10/29 21:24:35 Node 8082 -> RoutingTable:
+        - PathID: 420270169, Ea: 8084, Eb: 8085, Na: 8083, Nb: 8085
+        - PathID: 515004063, Ea: 8085, Eb: 8082, Na: 8085, Nb: 0
+        - PathID: 649850686, Ea: 8082, Eb: 8083, Na: 0, Nb: 8083
+        - PathID: 1298432611, Ea: 8082, Eb: 8084, Na: 0, Nb: 8084
+        - PathID: 1587357221, Ea: 8085, Eb: 8083, Na: 8085, Nb: 8083
+2025/10/29 21:24:35 Node 8083 -> RoutingTable:
+        - PathID: 420270169, Ea: 8084, Eb: 8085, Na: 8084, Nb: 8082
+        - PathID: 649850686, Ea: 8082, Eb: 8083, Na: 8082, Nb: 0
+        - PathID: 1587357221, Ea: 8085, Eb: 8083, Na: 8082, Nb: 0
+        - PathID: 3231993192, Ea: 8083, Eb: 8084, Na: 0, Nb: 8084
+2025/10/29 21:24:35 Node 8084 -> RoutingTable:
+        - PathID: 420270169, Ea: 8084, Eb: 8085, Na: 0, Nb: 8083
+        - PathID: 1298432611, Ea: 8082, Eb: 8084, Na: 8082, Nb: 0
+        - PathID: 3231993192, Ea: 8083, Eb: 8084, Na: 8083, Nb: 0
+2025/10/29 21:24:35 Node 8085 -> RoutingTable:
+        - PathID: 420270169, Ea: 8084, Eb: 8085, Na: 8082, Nb: 0
+        - PathID: 515004063, Ea: 8085, Eb: 8082, Na: 0, Nb: 8082
+        - PathID: 1587357221, Ea: 8085, Eb: 8083, Na: 0, Nb: 8082
+2025/10/29 21:24:35 ------------------------------
+2025/10/29 21:24:35 Simulation completed: Total messages: 99, Dropped: 0*/
