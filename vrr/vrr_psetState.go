@@ -92,16 +92,18 @@ func (psm *PsetStateManager) updateHandler() {
 		nextState := helloTrans[curState][tmp.trans]
 		curActive, _ := n.PsetManager.GetActive(tmp.node)
 
-		log.Printf("Node %d: Pset update for Node %d: %s[%s] ==> %s",
-			me, tmp.node, psetStates[curState], psetTrans[tmp.trans], psetStates[nextState])
-
-		if curState == PSET_UNKNOWN {
-			// 发送Hello消息节点为新节点，添加到PSet中
-			n.PsetManager.Add(tmp.node, nextState, tmp.active)
-			psm.Update()
-		} else if curState != nextState || curActive != tmp.active {
-			// 状态或活跃性有变化，更新PSet
-			n.PsetManager.Update(tmp.node, nextState, tmp.active)
+		// 只有当状态或活跃性实际发生变化时，才进行处理和打印日志
+		if curState != nextState || curActive != tmp.active {
+			log.Printf("Node %d: Pset update for Node %d: %s[%s] ==> %s",
+				me, tmp.node, psetStates[curState], psetTrans[tmp.trans], psetStates[nextState])
+			if curState == PSET_UNKNOWN {
+				// 发送Hello消息节点为新节点，添加到PSet中
+				n.PsetManager.Add(tmp.node, nextState, tmp.active)
+			} else {
+				// 状态或活跃性有变化，更新PSet
+				n.PsetManager.Update(tmp.node, nextState, tmp.active)
+			}
+			// 只有在PSet发生变化时才需要更新快照
 			psm.Update()
 		}
 

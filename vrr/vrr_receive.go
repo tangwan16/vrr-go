@@ -17,10 +17,18 @@ const (
 // --- 节点消息处理器 ---
 // ProcessMessage 是节点的消息处理入口点
 func (n *Node) rcvMessage(msg Message) {
-	log.Printf("Node %d: Received message type %s from Node %d to Node %d", n.ID, GetMessageTypeString(msg.Type), msg.Src, msg.Dst)
+	msgType := GetMessageTypeString(msg.Type)
+	if msgType == "VRR_HELLO" {
+		// 处理 VRR_HELLO 消息
+		log.Printf("Node %d: Received periodic HELLO Msg from Node %d in same subnet", n.ID, msg.Src)
 
-	// 重置相关超时和失败计数
+	} else {
+		log.Printf("Node %d: Received message type %s from Node %d to Node %d", n.ID, msgType, msg.Src, msg.Dst)
+	}
+
+	// 重置参数
 	n.ResetActiveTimeout()
+	// to do:为什么重置失败计数的是msg.Src？而不是msg.Sender？
 	n.PsetManager.ResetFailCount(msg.Src)
 
 	// 根据消息类型分发处理
@@ -166,6 +174,7 @@ func (n *Node) receiveSetupReq(msg Message, payload *SetupReqPayload) {
 
 	// 确定下一跳，排除消息发送者
 	nextHop := n.RoutingTable.GetNextExclude(dst, src)
+
 	// 本节点是src到dst的中间节点
 	if nextHop != 0 {
 		log.Printf("Node %d: Forwarding SETUP_REQ to next hop %d", me, nextHop)
@@ -179,7 +188,8 @@ func (n *Node) receiveSetupReq(msg Message, payload *SetupReqPayload) {
 		added := n.Add(vset, src, vset_)
 		if added {
 			// 从自己开始setup
-			n.SendSetup(me, src, me, me, n.NewPid(), proxy, vset)
+			// n.SendSetup(me, src, me, me, , proxy, vset)
+			n.LocalRcvSetup(src, n.NewPid(), proxy, vset)
 		} else {
 			// 添加失败，发送Setup失败消息
 			n.SendSetupFail(me, src, me, me, proxy, vset)
@@ -256,7 +266,7 @@ func (n *Node) receiveSetup(msg Message, payload *SetupPayload) {
 	add := n.Add(vset, src, vset_)
 
 	if add {
-		log.Printf("Node %d: Received multi-hop setup message from %d", me, src)
+		log.Printf("Node %d: vset-paths established by setup message from %d", me, src)
 		n.Active = true
 		return
 	} else {
@@ -362,4 +372,29 @@ func (n *Node) receiveSetupFail(msg Message, payload *SetupFailPayload) {
 		vset := n.VsetManager.GetAll()
 		n.Add(vset, 0, srcVsetWithSrc)
 	}
+}
+
+func (n *Node) LocalRcvSetup(dst, pid, proxy uint32, vset_ []uint32) {
+	me := n.ID
+	// 确定下一跳
+	var nextHop uint32
+	if n.PsetManager.GetStatus(dst) == PSET_UNKNOWN {
+		nextHop = n.RoutingTable.GetNext(proxy)
+	} else {
+		nextHop = dst
+	}
+
+	added := n.RoutingTable.Add(me, dst, 0, nextHop, pid)
+	if !added {
+		// to do:明确是写sender还是null
+		n.RoutingTable.TearDownPath(pid, me, 0)
+		log.Printf("Node %d: Couldn't add route, tearing down path to %d", me, me)
+	}
+
+	// 转发Setup消息给nexthop
+	if nextHop != 0 {
+		n.SendSetup(me, dst, me, nextHop, pid, proxy, vset_)
+		return
+	}
+	return
 }

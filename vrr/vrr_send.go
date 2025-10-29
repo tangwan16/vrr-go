@@ -4,7 +4,7 @@ import "log"
 
 // SendSetupReq 构建并发送一个 setup request 数据包
 func (n *Node) SendSetupReq(src, dest, sender, nextHop uint32, proxy uint32, vset_ []uint32) bool {
-	log.Printf("src %d: SendSetupReq to dest=%d via proxy=%d", src, dest, proxy)
+	log.Printf("Node %d: SendSetupReq to dest=%d via proxy=%d", src, dest, proxy)
 
 	// 2. 创建消息信封 (Message)，并装入 Payload
 	msg := Message{

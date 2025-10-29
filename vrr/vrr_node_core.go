@@ -109,13 +109,6 @@ func (n *Node) DetectFailures() {
 	}
 }
 
-// ResetActiveTimeout 重置活跃超时（修正函数名）
-func (n *Node) ResetActiveTimeout() {
-	n.lock.Lock()
-	defer n.lock.Unlock()
-	n.Timeout = 0
-}
-
 // ActiveTimeoutTick 处理活跃状态超时（每个时间单位调用一次）
 func (n *Node) ActiveTimeoutTick() {
 	// 如果已经活跃，直接返回
@@ -131,4 +124,11 @@ func (n *Node) ActiveTimeoutTick() {
 		n.Active = true
 		log.Printf("Node %d: Activated after Timeout (%d ticks)", n.ID, n.Timeout)
 	}
+}
+
+// ResetActiveTimeout 重置节点活跃超时
+func (n *Node) ResetActiveTimeout() {
+	n.lock.Lock()
+	defer n.lock.Unlock()
+	n.Timeout = 0
 }

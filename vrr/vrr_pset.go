@@ -34,14 +34,14 @@ func NewPsetManager(owner *Node) *PsetManager {
 }
 
 // Add  向物理邻居集中添加一个节点。
-func (pms *PsetManager) Add(nodeID uint32, status uint32, Active bool) bool {
-	pms.lock.Lock()
-	defer pms.lock.Unlock()
-	log.Printf("Node %d: Started to add neighbor Node %d", pms.ownerNode.ID, nodeID)
+func (pm *PsetManager) Add(nodeID uint32, status uint32, Active bool) bool {
+	pm.lock.Lock()
+	defer pm.lock.Unlock()
+	// log.Printf("Node %d: Started to add neighbor Node %d", pm.ownerNode.ID, nodeID)
 	// 检查节点是否已存在
-	for e := pms.psetList.Front(); e != nil; e = e.Next() {
+	for e := pm.psetList.Front(); e != nil; e = e.Next() {
 		if e.Value.(*PsetNode).NodeId == nodeID {
-			log.Printf("Node %d: Neighbor Node %d already exists", pms.ownerNode.ID, nodeID)
+			log.Printf("Node %d: Neighbor Node %d already exists", pm.ownerNode.ID, nodeID)
 			return false // 节点已存在
 		}
 	}
@@ -55,34 +55,34 @@ func (pms *PsetManager) Add(nodeID uint32, status uint32, Active bool) bool {
 	atomic.StoreInt32(&newNode.FailCount, 0)
 
 	// 添加到列表
-	pms.psetList.PushBack(newNode)
-	log.Printf("Node %d: Ended to add neighbor Node %d", pms.ownerNode.ID, nodeID)
+	pm.psetList.PushBack(newNode)
+	log.Printf("Node %d: Added neighbor Node %d", pm.ownerNode.ID, nodeID)
 	return true
 }
 
 // Update 更新物理邻居集中一个节点的状态。
-func (pms *PsetManager) Update(nodeID uint32, status uint32, Active bool) bool {
-	pms.lock.Lock()
-	defer pms.lock.Unlock()
+func (pm *PsetManager) Update(nodeID uint32, status uint32, Active bool) bool {
+	pm.lock.Lock()
+	defer pm.lock.Unlock()
 
-	for e := pms.psetList.Front(); e != nil; e = e.Next() {
+	for e := pm.psetList.Front(); e != nil; e = e.Next() {
 		pNode := e.Value.(*PsetNode)
 		if pNode.NodeId == nodeID {
 			pNode.Status = status
 			pNode.Active = Active
-			log.Printf("Node %d: PSet updated neighbor %d", pms.ownerNode.ID, nodeID)
+			log.Printf("Node %d: PSet updated neighbor %d", pm.ownerNode.ID, nodeID)
 			return true
 		}
 	}
 	return false
 }
 
-// Find 在物理邻居集中查找一个节点。
-func (pms *PsetManager) Find(nodeID uint32) *PsetNode {
-	pms.lock.RLock()
-	defer pms.lock.RUnlock()
+// find 在物理邻居集中查找一个节点。
+func (pm *PsetManager) find(nodeID uint32) *PsetNode {
+	pm.lock.RLock()
+	defer pm.lock.RUnlock()
 
-	for e := pms.psetList.Front(); e != nil; e = e.Next() {
+	for e := pm.psetList.Front(); e != nil; e = e.Next() {
 		if e.Value.(*PsetNode).NodeId == nodeID {
 			return e.Value.(*PsetNode)
 		}
@@ -91,11 +91,11 @@ func (pms *PsetManager) Find(nodeID uint32) *PsetNode {
 }
 
 // Contains 检查物理邻居集中是否存在指定的节点。
-func (pms *PsetManager) Contains(nodeID uint32) bool {
-	pms.lock.RLock() // 使用读锁
-	defer pms.lock.RUnlock()
+func (pm *PsetManager) Contains(nodeID uint32) bool {
+	pm.lock.RLock() // 使用读锁
+	defer pm.lock.RUnlock()
 
-	for e := pms.psetList.Front(); e != nil; e = e.Next() {
+	for e := pm.psetList.Front(); e != nil; e = e.Next() {
 		tmp := e.Value.(*PsetNode)
 		if tmp.NodeId == nodeID {
 			return true // 找到节点，返回 true
@@ -106,12 +106,12 @@ func (pms *PsetManager) Contains(nodeID uint32) bool {
 }
 
 // GetActive 获取物理邻居集中一个节点的活跃状态。
-func (pms *PsetManager) GetActive(nodeID uint32) (bool, bool) {
-	pms.lock.RLock() // 使用读锁，因为这是只读操作
-	defer pms.lock.RUnlock()
+func (pm *PsetManager) GetActive(nodeID uint32) (bool, bool) {
+	pm.lock.RLock() // 使用读锁，因为这是只读操作
+	defer pm.lock.RUnlock()
 
 	// 遍历列表查找节点
-	for e := pms.psetList.Front(); e != nil; e = e.Next() {
+	for e := pm.psetList.Front(); e != nil; e = e.Next() {
 		tmp := e.Value.(*PsetNode)
 		if tmp.NodeId == nodeID {
 			return tmp.Active, true // 返回活跃状态和 true 表示找到
@@ -123,11 +123,11 @@ func (pms *PsetManager) GetActive(nodeID uint32) (bool, bool) {
 }
 
 // GetStatus  获取物理邻居集中一个节点的状态。
-func (pms *PsetManager) GetStatus(nodeID uint32) uint32 {
-	pms.lock.RLock() // 使用读锁，因为这是只读操作
-	defer pms.lock.RUnlock()
+func (pm *PsetManager) GetStatus(nodeID uint32) uint32 {
+	pm.lock.RLock() // 使用读锁，因为这是只读操作
+	defer pm.lock.RUnlock()
 
-	for e := pms.psetList.Front(); e != nil; e = e.Next() {
+	for e := pm.psetList.Front(); e != nil; e = e.Next() {
 		tmp := e.Value.(*PsetNode)
 		if tmp.NodeId == nodeID {
 			return tmp.Status // 返回状态和表示“找到”的布尔值
@@ -141,39 +141,37 @@ func (pms *PsetManager) GetStatus(nodeID uint32) uint32 {
 // IncFailCount 原子地增加指定节点的失败计数。
 // 注意：这个方法接收一个 *PsetNode 指针，因为它假设你已经通过 Find 找到了节点。
 // 这样做可以避免在已经持有节点引用的情况下再次加锁和遍历。
-func (pms *PsetManager) IncFailCount(nodeID uint32) (int32, bool) {
-	// 这里我们复用 Find 方法
-	pNode := pms.Find(nodeID)
+func (pm *PsetManager) IncFailCount(nodeID uint32) (int32, bool) {
+	pNode := pm.find(nodeID)
 	if pNode == nil {
 		return -1, false
 	}
 	newValue := atomic.AddInt32(&pNode.FailCount, 1)
-	log.Printf("Node %d: PSet incremented fail count for neighbor %d to %d", pms.ownerNode.ID, nodeID, newValue)
+	log.Printf("Node %d: PSet incremented fail count for neighbor %d to %d", pm.ownerNode.ID, nodeID, newValue)
 	return newValue, true
 }
 
+// ---------------------public api---------------------------------'
 // ResetFailCount 原子地重置指定节点的失败计数。
-func (pms *PsetManager) ResetFailCount(nodeID uint32) bool {
-	// 这里我们复用 Find 方法
-	pNode := pms.Find(nodeID)
+func (pm *PsetManager) ResetFailCount(nodeID uint32) bool {
+	pNode := pm.find(nodeID)
 	if pNode != nil {
 		atomic.StoreInt32(&pNode.FailCount, 0)
-		log.Printf("Node %d: PSet reset fail count for neighbor Node %d", pms.ownerNode.ID, nodeID)
+		// log.Printf("Node %d: Pset reset fail count for neighbor Node %d", pm.ownerNode.ID, nodeID)
 		return true
 	}
 	return false
 }
 
-// ---------------------public api---------------------------------'
 // Remove 从物理邻居集中移除一个节点。
-func (pms *PsetManager) Remove(nodeID uint32) bool {
-	pms.lock.Lock()
-	defer pms.lock.Unlock()
+func (pm *PsetManager) Remove(nodeID uint32) bool {
+	pm.lock.Lock()
+	defer pm.lock.Unlock()
 
-	for e := pms.psetList.Front(); e != nil; e = e.Next() {
+	for e := pm.psetList.Front(); e != nil; e = e.Next() {
 		if e.Value.(*PsetNode).NodeId == nodeID {
-			pms.psetList.Remove(e)
-			log.Printf("Node %d: PSet removed neighbor %d", pms.ownerNode.ID, nodeID)
+			pm.psetList.Remove(e)
+			log.Printf("Node %d: PSet removed neighbor %d", pm.ownerNode.ID, nodeID)
 			return true
 		}
 	}
@@ -182,12 +180,12 @@ func (pms *PsetManager) Remove(nodeID uint32) bool {
 
 // IsActiveLinkedPset 判断指定节点ID是否为当前节点的活跃且已链接的物理邻居
 // 返回值：true表示是活跃且已链接的pset，false表示不是
-func (pms *PsetManager) IsActiveLinkedPset(nodeID uint32) bool {
-	pms.lock.RLock() // 使用读锁，因为这是只读操作
-	defer pms.lock.RUnlock()
+func (pm *PsetManager) IsActiveLinkedPset(nodeID uint32) bool {
+	pm.lock.RLock() // 使用读锁，因为这是只读操作
+	defer pm.lock.RUnlock()
 
 	// 遍历物理邻居列表
-	for e := pms.psetList.Front(); e != nil; e = e.Next() {
+	for e := pm.psetList.Front(); e != nil; e = e.Next() {
 		pNode := e.Value.(*PsetNode)
 		if pNode.NodeId == nodeID {
 			// 检查是否同时满足：已链接 AND 活跃
@@ -200,18 +198,18 @@ func (pms *PsetManager) IsActiveLinkedPset(nodeID uint32) bool {
 }
 
 // String 返回 PSetManager 状态的可读字符串表示形式
-func (pms *PsetManager) String() string {
-	pms.lock.RLock() // 使用读锁
-	defer pms.lock.RUnlock()
+func (pm *PsetManager) String() string {
+	pm.lock.RLock() // 使用读锁
+	defer pm.lock.RUnlock()
 
-	if pms.psetList.Len() == 0 {
+	if pm.psetList.Len() == 0 {
 		return "PSet: {empty}"
 	}
 
 	var builder strings.Builder
 	builder.WriteString("PSet: {")
 	count := 0
-	for e := pms.psetList.Front(); e != nil; e = e.Next() {
+	for e := pm.psetList.Front(); e != nil; e = e.Next() {
 		pNode := e.Value.(*PsetNode)
 		// psetStates 在 vrr_psetState.go 中定义，可以直接使用
 		statusStr := psetStates[pNode.Status]
@@ -231,15 +229,15 @@ PickRandomActive(pset)
 	returns a random physical neighbor that is Active
 */
 // GetProxy 从活跃的物理邻居中随机选择一个作为代理。
-func (pms *PsetManager) GetProxy() (uint32, bool) {
-	pms.lock.RLock() // 使用读锁
-	defer pms.lock.RUnlock()
+func (pm *PsetManager) GetProxy() (uint32, bool) {
+	pm.lock.RLock() // 使用读锁
+	defer pm.lock.RUnlock()
 
 	// 使用切片代替固定大小的数组，更灵活
-	activeNodes := make([]uint32, 0, pms.psetList.Len())
+	activeNodes := make([]uint32, 0, pm.psetList.Len())
 
 	// 遍历列表，收集所有符合条件的节点
-	for e := pms.psetList.Front(); e != nil; e = e.Next() {
+	for e := pm.psetList.Front(); e != nil; e = e.Next() {
 		tmp := e.Value.(*PsetNode)
 		if tmp.Status == PSET_LINKED && tmp.Active == true {
 			activeNodes = append(activeNodes, tmp.NodeId)

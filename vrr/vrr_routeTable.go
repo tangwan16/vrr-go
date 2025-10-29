@@ -162,13 +162,6 @@ func (rt *RoutingTableManager) Add(ea, eb, na, nb, pathID uint32) bool {
 		log.Printf("Node %d: Route with pathID %d already exists", rt.ownerNode.ID, pathID)
 		return false
 	}
-	/* 	me := rt.ownerNode.ID
-	   	if na == me {
-	   		na = 0
-	   	}
-	   	if nb == me {
-	   		nb = 0
-	   	} */
 	rt.routes[pathID] = &RoutingTableEntry{
 		Ea:     ea,
 		Eb:     eb,
@@ -176,7 +169,7 @@ func (rt *RoutingTableManager) Add(ea, eb, na, nb, pathID uint32) bool {
 		Nb:     nb,
 		PathId: pathID,
 	}
-	log.Printf("Node %d: Added route (pathID: %d, ea: %d, eb: %d)", rt.ownerNode.ID, pathID, ea, eb)
+	log.Printf("Node %d: Added route (pathID: %d, ea: %d, eb: %d, na: %d, nb: %d)", rt.ownerNode.ID, pathID, ea, eb, na, nb)
 	return true
 }
 

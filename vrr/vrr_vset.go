@@ -52,7 +52,7 @@ func (vm *VsetManager) insertNode(nodeId uint32) {
 	// 将新条目添加到此管理器的 vsetList 中
 	vm.vsetList.PushBack(tmp)
 
-	log.Printf("Node %d: VSet inserted neighbor %d", meID, tmp.NodeId)
+	// log.Printf("Node %d: VSet inserted neighbor %d", meID, tmp.NodeId)
 }
 
 // bump 检查VSet大小，如果超出限制则“挤出”一个节点。
@@ -137,7 +137,7 @@ ShouldAdd(vset, id)
 */
 // ShouldAdd  检查一个新节点是否应该被添加到VSet中。
 // to do: 直接给定参数vset,不要使用list遍历
-func (vm *VsetManager) ShouldAdd(vset []uint32, node uint32) bool {
+func (vm *VsetManager) ShouldAdd(node uint32) bool {
 	vm.lock.RLock() // 获取读锁
 	defer vm.lock.RUnlock()
 
@@ -231,19 +231,24 @@ func (n *Node) Add(vset []uint32, src uint32, vset_ []uint32) bool {
 
 	// 对 vset_ 中的每个节点，检查是否应该添加，如果应该添加，则选择一个代理并发送 setup_req
 	for _, id := range vset_ {
-		if n.VsetManager.ShouldAdd(vset, id) {
-			proxy, _ := n.PsetManager.GetProxy()
-			n.SendSetupReq(me, id, me, proxy, proxy, vset)
+		if n.VsetManager.ShouldAdd(id) {
+			proxy, ok := n.PsetManager.GetProxy()
+			if ok {
+				n.SendSetupReq(me, id, me, proxy, proxy, vset)
+			}
 			// log.Printf("Node %d: Sending setup_req to dest=%d via proxy=%d", n.ID, id, proxy)
 		}
 	}
 	// AddMsgSrcToLocalVset(src,vset_)
 	// 如果 src 不为零且应该添加到 vset 中
-	if src != 0 && n.VsetManager.ShouldAdd(vset, src) {
-		log.Printf("Node %d: Adding src %d to vset", n.ID, src)
+	if src != 0 && n.VsetManager.ShouldAdd(src) {
+		log.Printf("Node %d: Added src Node %d to vset", n.ID, src)
 		removedNodeId, _ := n.VsetManager.Add(src)
-		n.RoutingTable.TearDownPathTo(removedNodeId)
-		log.Printf("Node %d: Should tear down path to removed node %d", n.ID, removedNodeId)
+		if removedNodeId != 0 {
+			n.RoutingTable.TearDownPathTo(removedNodeId)
+			log.Printf("Node %d: Should tear down path to removed node %d", n.ID, removedNodeId)
+		}
+
 		return true
 	}
 	// AddMsgSrcToLocalVset(0,vset_)

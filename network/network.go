@@ -124,7 +124,7 @@ func (network *Network) Send(msg vrr.Message) {
 
 		// 遍历发送者所在的所有子网
 		for _, subnetID := range senderSubnets {
-			log.Printf("Network: Broadcasting message type %s from %d in subnet %d", vrr.GetMessageTypeString(msg.Type), msg.Src, subnetID)
+			// log.Printf("Network: Broadcasting message type %s from %d in subnet %d", vrr.GetMessageTypeString(msg.Type), msg.Src, subnetID)
 			// 向该子网内的所有节点广播
 			for _, targetNodeID := range network.SubnetTopology[subnetID] {
 				// 节点不向自己广播，且不重复广播

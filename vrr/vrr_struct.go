@@ -102,23 +102,3 @@ type Node struct {
 	stopOnce sync.Once     // 确保 StopChan 只关闭一次
 	wg       sync.WaitGroup
 }
-
-// GetMessageTypeString 将消息类型常量转换为可读的字符串
-func GetMessageTypeString(msgType uint8) string {
-	switch msgType {
-	case VRR_HELLO:
-		return "VRR_HELLO"
-	case VRR_SETUP_REQ:
-		return "VRR_SETUP_REQ"
-	case VRR_SETUP:
-		return "VRR_SETUP"
-	case VRR_SETUP_FAIL:
-		return "VRR_SETUP_FAIL"
-	case VRR_TEARDOWN:
-		return "VRR_TEARDOWN"
-	case VRR_DATA:
-		return "VRR_DATA"
-	default:
-		return "UNKNOWN"
-	}
-}
