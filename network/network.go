@@ -83,8 +83,8 @@ func NewNetwork(Latency time.Duration, PacketLoss float32) *Network {
 // RegisterNode 注册节点到子网
 func (network *Network) RegisterNode(node *vrr.Node, subnetIDs ...uint32) {
 	network.nodesMux.Lock()
-	network.Nodes[node.ID] = node
 	defer network.nodesMux.Unlock()
+	network.Nodes[node.ID] = node
 
 	network.topologyMux.Lock()
 	defer network.topologyMux.Unlock()
@@ -96,13 +96,86 @@ func (network *Network) RegisterNode(node *vrr.Node, subnetIDs ...uint32) {
 	log.Printf("Network: Registered node %d to subnet(s) %v", node.ID, subnetIDs)
 }
 
-// UnregisterNode 从网络注销节点
+// UnregisterNode 从网络注销节点 (完全移除)
 func (network *Network) UnregisterNode(nodeID uint32) {
+	// 严格遵守加锁顺序: 1. nodesMux, 2. topologyMux
 	network.nodesMux.Lock()
 	defer network.nodesMux.Unlock()
+	network.topologyMux.Lock()
+	defer network.topologyMux.Unlock()
 
+	// 1. 从拓扑信息中移除节点
+	subnets, exists := network.NodeToSubnet[nodeID]
+	if exists {
+		for _, subnetID := range subnets {
+			nodesInSubnet := network.SubnetTopology[subnetID]
+			newNodesInSubnet := make([]uint32, 0, len(nodesInSubnet)-1)
+			for _, id := range nodesInSubnet {
+				if id != nodeID {
+					newNodesInSubnet = append(newNodesInSubnet, id)
+				}
+			}
+			network.SubnetTopology[subnetID] = newNodesInSubnet
+		}
+		delete(network.NodeToSubnet, nodeID)
+	}
+
+	// 2. 从主节点列表中移除节点
 	delete(network.Nodes, nodeID)
+
 	log.Printf("Network: Unregistered node %d", nodeID)
+}
+
+// UnregisterNodeFromSubnets 将节点从指定的子网列表中注销
+func (network *Network) UnregisterNodeFromSubnets(nodeID uint32, subnetsToLeave ...uint32) {
+	if len(subnetsToLeave) == 0 {
+		return
+	}
+
+	// 严格遵守加锁顺序: 1. nodesMux, 2. topologyMux
+	network.nodesMux.Lock()
+	defer network.nodesMux.Unlock()
+	network.topologyMux.Lock()
+	defer network.topologyMux.Unlock()
+
+	// 为了快速查找，将要离开的子网放入一个map
+	leaveMap := make(map[uint32]bool, len(subnetsToLeave))
+	for _, s := range subnetsToLeave {
+		leaveMap[s] = true
+	}
+
+	// 1. 更新 SubnetTopology
+	for subnetID := range leaveMap {
+		if nodesInSubnet, ok := network.SubnetTopology[subnetID]; ok {
+			newNodesInSubnet := make([]uint32, 0, len(nodesInSubnet)-1)
+			for _, id := range nodesInSubnet {
+				if id != nodeID {
+					newNodesInSubnet = append(newNodesInSubnet, id)
+				}
+			}
+			network.SubnetTopology[subnetID] = newNodesInSubnet
+		}
+	}
+
+	// 2. 更新 NodeToSubnet
+	if currentSubnets, ok := network.NodeToSubnet[nodeID]; ok {
+		newCurrentSubnets := make([]uint32, 0, len(currentSubnets))
+		for _, subnetID := range currentSubnets {
+			if !leaveMap[subnetID] {
+				newCurrentSubnets = append(newCurrentSubnets, subnetID)
+			}
+		}
+
+		// 关键修复：如果节点不再属于任何子网，则从两个映射中都删除它
+		if len(newCurrentSubnets) == 0 {
+			delete(network.NodeToSubnet, nodeID)
+			delete(network.Nodes, nodeID) // <--- 你指出的问题在这里被修复
+		} else {
+			network.NodeToSubnet[nodeID] = newCurrentSubnets
+		}
+	}
+
+	log.Printf("Network: Unregistered node %d from subnet(s) %v", nodeID, subnetsToLeave)
 }
 
 // Send 发送消息的核心实现

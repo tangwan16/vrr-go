@@ -17,9 +17,12 @@ const (
 // --- 节点消息处理器 ---
 // ProcessMessage 是节点的消息处理入口点
 func (n *Node) rcvMessage(msg Message) {
-	// to do:为什么重置失败计数的是msg.Src？而不是msg.Sender？
-	// n.ResetFailCount(msg.Src)
-	n.ResetFailCount(msg.Sender)
+	// done:为什么重置失败计数的是msg.Src？而不是msg.Sender？
+	// 邻居节点发来的消息通过hello消息(src==sender)，重置失败计数
+	// src_id 可以为即将成为邻居节点的节点提供弹性
+	// 防止在邻居关系还没稳定建立起来之前，错误地标记即将加入邻居的节点为PSET_FAILED
+	// 为HELLo提供更大的容错期
+	n.ResetFailCount(msg.Src)
 
 	msgType := GetMessageTypeString(msg.Type)
 	if msgType == "VRR_HELLO" {
