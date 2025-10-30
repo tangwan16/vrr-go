@@ -17,6 +17,10 @@ const (
 // --- 节点消息处理器 ---
 // ProcessMessage 是节点的消息处理入口点
 func (n *Node) rcvMessage(msg Message) {
+	// to do:为什么重置失败计数的是msg.Src？而不是msg.Sender？
+	// n.ResetFailCount(msg.Src)
+	n.ResetFailCount(msg.Sender)
+
 	msgType := GetMessageTypeString(msg.Type)
 	if msgType == "VRR_HELLO" {
 		// 处理 VRR_HELLO 消息
@@ -24,12 +28,9 @@ func (n *Node) rcvMessage(msg Message) {
 
 	} else {
 		log.Printf("Node %d: Received message type %s from Node %d to Node %d", n.ID, msgType, msg.Src, msg.Dst)
+		// 节点正在参与虚拟网络活动，自举计数 timeout重置
+		n.ResetActiveTimeout()
 	}
-
-	// 重置参数
-	n.ResetActiveTimeout()
-	// to do:为什么重置失败计数的是msg.Src？而不是msg.Sender？
-	n.PsetManager.ResetFailCount(msg.Src)
 
 	// 根据消息类型分发处理
 	switch msg.Type {

@@ -138,30 +138,7 @@ func (pm *PsetManager) GetStatus(nodeID uint32) uint32 {
 	return PSET_UNKNOWN
 }
 
-// IncFailCount 原子地增加指定节点的失败计数。
-// 注意：这个方法接收一个 *PsetNode 指针，因为它假设你已经通过 Find 找到了节点。
-// 这样做可以避免在已经持有节点引用的情况下再次加锁和遍历。
-func (pm *PsetManager) IncFailCount(nodeID uint32) (int32, bool) {
-	pNode := pm.find(nodeID)
-	if pNode == nil {
-		return -1, false
-	}
-	newValue := atomic.AddInt32(&pNode.FailCount, 1)
-	log.Printf("Node %d: PSet incremented fail count for neighbor %d to %d", pm.ownerNode.ID, nodeID, newValue)
-	return newValue, true
-}
-
 // ---------------------public api---------------------------------'
-// ResetFailCount 原子地重置指定节点的失败计数。
-func (pm *PsetManager) ResetFailCount(nodeID uint32) bool {
-	pNode := pm.find(nodeID)
-	if pNode != nil {
-		atomic.StoreInt32(&pNode.FailCount, 0)
-		// log.Printf("Node %d: Pset reset fail count for neighbor Node %d", pm.ownerNode.ID, nodeID)
-		return true
-	}
-	return false
-}
 
 // Remove 从物理邻居集中移除一个节点。
 func (pm *PsetManager) Remove(nodeID uint32) bool {

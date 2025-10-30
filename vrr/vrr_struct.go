@@ -9,7 +9,7 @@ const (
 
 	VRR_VSET_SIZE = 4
 
-	VRR_FAIL_TIMEOUT = 4 /* multiple of delay to mark
+	VRR_FAIL_TIMEOUT = 8 /* multiple of delay to mark
 	 * failed nodes */
 	VRR_ACTIVE_TIMEOUT = 8 /* multiple of delay to activate
 	* this node without virtual
