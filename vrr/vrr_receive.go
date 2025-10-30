@@ -87,7 +87,7 @@ func (n *Node) receiveData(msg Message, payload *DataPayload) {
 	} else {
 		nextHop := n.RoutingTable.GetNext(msg.Dst)
 		if nextHop == 0 {
-			log.Printf("Node %d: No route to forward data to %d", n.ID, msg.Dst)
+			log.Printf("Node %d: No route to forward data to Node %d", n.ID, msg.Dst)
 			return
 		}
 

@@ -30,13 +30,9 @@ func TestHelloHandshake(t *testing.T) {
 	network.RegisterNode(node5, 1) // node5 在子网1并且active=true开始构建虚拟网络
 	node5.SetActive(true)
 	network.RegisterNode(node2, 1, 2) // node2 是路由器, 在子网1和2
-	// node2.SetActive(true)
-	network.RegisterNode(node3, 2) // node3 在子网2
-	// node3.SetActive(true)
-	network.RegisterNode(node4, 2) // node4 在子网2,active=false
-	// node4.SetActive(false)
-	network.RegisterNode(node6, 3) // node5 在孤立的子网3,active=false
-	// node5.SetActive(false)
+	network.RegisterNode(node3, 2)    // node3 在子网2
+	network.RegisterNode(node4, 2)    // node4 在子网2,active=false
+	network.RegisterNode(node6, 3)    // node5 在孤立的子网3,active=false
 
 	nodes := []*vrr.Node{node6, node2, node3, node4, node5}
 
